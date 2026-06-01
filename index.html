@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anamnez Oluşturucu — Hipertansiyon</title>
+  <meta name="description" content="Form bazlı soru-cevaplarla hipertansiyon anamnez taslağı üreten araç." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="brand-mark">℞</span>
+        <div>
+          <h1>Anamnez Oluşturucu</h1>
+          <p class="subtitle">Hipertansiyon — form bazlı taslak üretimi</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <select id="template-select" class="template-select" aria-label="Şablon seçimi">
+          <option value="hipertansiyon">Hipertansiyon Anamnezi</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <!-- SORU FORMU -->
+    <section class="form-pane" aria-label="Soru formu">
+      <div class="pane-head">
+        <h2>Sorular</h2>
+        <button id="reset-btn" class="btn btn-ghost" type="button">Tümünü Temizle</button>
+      </div>
+      <p class="hint">
+        Her soruda <strong>Evet/Var</strong> seçilirse boşlukları doldurun,
+        <strong>Hayır/Yok</strong> sabit olumsuz cümleyi ekler,
+        <strong>Atla</strong> o bölümü taslağa hiç işlemez.
+      </p>
+      <form id="anamnez-form" autocomplete="off"></form>
+    </section>
+
+    <!-- ÖNİZLEME -->
+    <section class="preview-pane" aria-label="Anamnez taslağı önizleme">
+      <div class="pane-head sticky-head">
+        <h2>Anamnez Taslağı</h2>
+        <div class="preview-actions">
+          <button id="copy-btn" class="btn btn-primary" type="button">Kopyala</button>
+        </div>
+      </div>
+      <article id="preview" class="preview" aria-live="polite">
+        <p class="preview-empty">Soruları yanıtladıkça taslak burada oluşacak.</p>
+      </article>
+      <p class="disclaimer">
+        Bu araç yalnızca bir <strong>taslak</strong> üretir. Klinik karar ve son metin
+        hekimin sorumluluğundadır.
+      </p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="wrap">Anamnez Oluşturucu · test sürümü</div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="schema.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
