@@ -175,6 +175,23 @@ body {
   box-shadow: 0 0 0 3px rgba(31, 122, 140, 0.15);
 }
 
+/* ---------- Çoklu seçim ---------- */
+.field-multi { flex: 1 1 100%; }
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 2px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.check input { accent-color: var(--brand); }
+
 /* ---------- Semptom tablosu ---------- */
 .symptom-table { display: flex; flex-direction: column; gap: 8px; }
 .symptom-row {

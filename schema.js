@@ -31,6 +31,42 @@ function buyukHarfBasla(s) {
   return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
 }
 
+/* Basit Var/Yok bloğu üreticisi (tekrarı azaltmak için) */
+function varYok(id, label, varText, yokText) {
+  return {
+    id, label, default: "skip",
+    modes: [
+      { key: "yes", label: "Var", build: () => varText },
+      { key: "no", label: "Yok", build: () => yokText },
+      SKIP
+    ]
+  };
+}
+
+/* Çoklu seçim (checklist): işaretliler "mevcut", kalanlar "yok" */
+function checklistVarYok(id, label, items) {
+  return {
+    id, label, default: "skip",
+    modes: [
+      {
+        key: "fill", label: "Belirt",
+        fields: [
+          { name: "sec", type: "multi", label: "Mevcut olanları işaretleyin", options: items }
+        ],
+        build: (v) => {
+          const sec = v.sec || [];
+          const yok = items.filter((i) => !sec.includes(i));
+          const parts = [];
+          if (sec.length) parts.push(`${joinVe(sec)} mevcut`);
+          if (yok.length) parts.push(`${joinVirgul(yok)} yok`);
+          return buyukHarfBasla(parts.join("; ")) + ".";
+        }
+      },
+      SKIP
+    ]
+  };
+}
+
 /* Atla modu — her blokta ortak */
 const SKIP = { key: "skip", label: "Atla" };
 
@@ -377,6 +413,437 @@ const HIPERTANSIYON_SEMA = {
             SKIP
           ]
         }
+      ]
+    }
+  ]
+};
+
+/* =========================================================================
+ * ÜLSERATİF KOLİT ANAMNEZİ
+ * ====================================================================== */
+const ULSERATIF_KOLIT_SEMA = {
+  id: "ulseratif-kolit",
+  title: "Ülseratif Kolit Anamnezi",
+  groups: [
+    /* ---------------------------------------------------------------- */
+    {
+      id: "uc-tani-oyku",
+      title: "Tanı ve Hastalık Öyküsü",
+      blocks: [
+        {
+          id: "uc-baslangic",
+          label: "Başlangıç şikayetleri ve dönemi",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                {
+                  name: "sikayetler", type: "multi", label: "Başlangıç şikayetleri",
+                  options: ["kanlı ishal", "mukus", "tenesmus"]
+                },
+                { name: "yil", type: "text", label: "Başlangıç yılı", placeholder: "ör. 2015" },
+                { name: "yas", type: "text", label: "Başlangıç yaşı", placeholder: "ör. 28" }
+              ],
+              build: (v) =>
+                buyukHarfBasla(
+                  `${v.sikayetler && v.sikayetler.length ? joinVe(v.sikayetler) : "…"} ` +
+                  `şikayetleri ${v.yil || "…"} yılında ${v.yas || "…"} yaşında başlamış.`
+                )
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-tani-yer",
+          label: "Tanının konulduğu yer biliniyor mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "hastane", type: "text", label: "Hastane", placeholder: "ör. … Üniversitesi" }
+              ],
+              build: (v) =>
+                `Hasta şikayetleriyle ${v.hastane || "…"} hastanesine başvurusunda tanı almış.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-baslangic-seyir",
+          label: "Başlangıç döneminde hastalık seyri",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                {
+                  name: "seyir1", type: "select", label: "Seyir tipi",
+                  options: ["sürekli", "ataklar halinde aralıklı"]
+                },
+                {
+                  name: "seyir2", type: "select", label: "Şiddet seyri",
+                  options: ["giderek artan", "stabil seyreden"]
+                }
+              ],
+              build: (v) =>
+                `O dönemde şikayetleri ${v.seyir1 || "…"}, ${v.seyir2 || "…"} ` +
+                `vasıfta ilerliyormuş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-guncel-tedavi",
+          label: "Güncel medikal tedavi",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                {
+                  name: "ilac", type: "select", label: "Tedavi",
+                  options: ["TNF inhibitörü", "5-ASA", "Vedolizumab", "diğer"]
+                },
+                { name: "doz", type: "text", label: "Doz / şema", placeholder: "ör. 300 mg, 8 haftada bir" }
+              ],
+              build: (v) =>
+                `Güncel olarak ${[v.ilac, v.doz].filter(Boolean).join(" ") || "…"} kullanıyormuş.`
+            },
+            { key: "no", label: "Yok", build: () => "Güncel olarak medikal tedavi almıyormuş." },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-ilac-uyum",
+          label: "İlaç kullanım uyumu",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "duzen", type: "select", label: "Uyum", options: ["düzenli", "düzensiz"] }
+              ],
+              build: (v) => `İlaçlarını ${v.duzen || "düzenli"} olarak kullanıyormuş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-onceki-tedavi",
+          label: "Önceki medikal tedavi öyküsü",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "onceki", type: "text", label: "Önceki tedavi(ler)", placeholder: "ör. azatioprin, sistemik steroid" }
+              ],
+              build: (v) => `Önceki medikal tedavisinde ${v.onceki || "…"} kullanmış.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-atak-sayisi",
+          label: "Geçmiş atak sayısı",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [{ name: "sayi", type: "text", label: "Atak sayısı", placeholder: "ör. 3" }],
+              build: (v) => `Geçmişte ${v.sayi || "…"} kez atak geçirmiş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-son-atak",
+          label: "Son atak tarihi",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [{ name: "tarih", type: "text", label: "Son atak", placeholder: "ör. 3 ay önce / 2024" }],
+              build: (v) => `Son atak tarihi ${v.tarih || "…"} olmuş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-yatis",
+          label: "Alevlenme nedeniyle hastaneye yatış öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "kac", type: "text", label: "Kaç kez", placeholder: "ör. 2" },
+                { name: "tedavi", type: "text", label: "Verilen tedaviler", placeholder: "ör. IV steroid" },
+                { name: "sure", type: "text", label: "Yatış süresi (gün)", placeholder: "ör. 7" }
+              ],
+              build: (v) =>
+                `Ülseratif kolit alevlenmesi nedeniyle ${v.kac || "…"} kez hastaneye yatış ` +
+                `öyküsü mevcut (verilen tedaviler: ${v.tedavi || "…"}; yatış süresi: ${v.sure || "…"} gün).`
+            },
+            {
+              key: "no", label: "Yok",
+              build: () => "Ülseratif kolit alevlenmesi nedeniyle hastaneye yatış öyküsü yok."
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-kolonoskopi",
+          label: "Son kolonoskopi",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "text", label: "Tarih", placeholder: "ör. Mart 2025" },
+                { name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. sol kolit, Mayo 2" }
+              ],
+              build: (v) =>
+                `Son kolonoskopisi ${v.tarih || "…"} tarihinde ${v.sonuc || "…"} olarak sonuçlanmış.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-yayginlik",
+          label: "Güncel hastalık yaygınlığı",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                {
+                  name: "yayginlik", type: "select", label: "Yaygınlık",
+                  options: ["proktit", "sol kolit", "pankolit"]
+                }
+              ],
+              build: (v) => `Hastalık güncel olarak ${v.yayginlik || "…"} olarak değerlendirilmiş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-kanser-tarama",
+          label: "Tanı süresi 8 yılı aştığı için: kolonoskopi ile düzenli kanser taraması yapılıyor mu?",
+          default: "skip",
+          /* Otomatik koşul: başlangıç yılı bugünden ≥ 8 yıl öncesiyse görünür */
+          visibleIf: (state) => {
+            const t = state["uc-baslangic"];
+            if (!t || t.mode !== "fill") return false;
+            const m = String(t.values.yil || "").match(/\d{4}/);
+            if (!m) return false;
+            return new Date().getFullYear() - parseInt(m[0], 10) >= 8;
+          },
+          modes: [
+            {
+              key: "yes", label: "Evet",
+              fields: [{ name: "tarih", type: "text", label: "Son tarama (opsiyonel)", placeholder: "ör. 2024" }],
+              build: (v) =>
+                `Tanı süresi 8 yılı aştığından kolonoskopi ile düzenli kanser taraması ` +
+                `yapılıyormuş${v.tarih ? ` (son tarama: ${v.tarih})` : ""}.`
+            },
+            {
+              key: "no", label: "Hayır",
+              build: () =>
+                "Tanı süresi 8 yılı aşmasına rağmen kolonoskopi ile düzenli kanser taraması yapılmıyormuş."
+            },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "uc-guncel-semptom",
+      title: "Güncel Semptom Sorgusu",
+      blocks: [
+        {
+          id: "uc-gunluk-diski",
+          label: "Günlük dışkılama sıklığı ve niteliği",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "sayi", type: "text", label: "Günlük dışkılama sayısı", placeholder: "ör. 6" },
+                { name: "kanli", type: "select", label: "Kanlı mı?", options: ["kanlı", "kansız"] }
+              ],
+              build: (v) =>
+                `Güncel olarak günde ${v.sayi || "…"} kez ${v.kanli || "…"} dışkılıyormuş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-kivam",
+          label: "Dışkı kıvamı",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                {
+                  name: "kivam", type: "select", label: "Kıvam",
+                  options: ["sulu", "yarı katı", "şekilli", "kabızlıkla dönüşümlü"]
+                }
+              ],
+              build: (v) => `Dışkı kıvamı ${v.kivam || "…"} olarak tarifleniyor.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-kan-ozellik",
+          label: "Kanlı dışkı özellikleri",
+          default: "skip",
+          /* Yalnızca dışkı 'kanlı' işaretlenmişse görünür */
+          visibleIf: (state) => {
+            const b = state["uc-gunluk-diski"];
+            return !!(b && b.mode === "fill" && b.values.kanli === "kanlı");
+          },
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "renk", type: "select", label: "Kanın rengi", options: ["açık kırmızı", "koyu kırmızı"] },
+                {
+                  name: "yer", type: "select", label: "Kanın yeri",
+                  options: ["dışkıya karışmış", "tuvalet kağıdında"]
+                }
+              ],
+              build: (v) =>
+                `Kanama ${v.renk || "…"} renkte ve ${v.yer || "…"} şeklinde tarifleniyor.`
+            },
+            SKIP
+          ]
+        },
+        varYok("uc-gece", "Gece uykudan uyandıran dışkılama var mı?",
+          "Gece uykudan uyandıran dışkılaması mevcut.",
+          "Gece uykudan uyandıran dışkılaması yok."),
+        varYok("uc-tenesmus", "Tenesmus var mı?", "Tenesmus mevcut.", "Tenesmus yok."),
+        varYok("uc-urgency", "Tuvalete yetişememe (urgency) var mı?",
+          "Tuvalete yetişememe (urgency) mevcut.", "Tuvalete yetişememe (urgency) yok."),
+        varYok("uc-inkontinans", "Gaita inkontinansı var mı?",
+          "Gaita inkontinansı mevcut.", "Gaita inkontinansı yok."),
+        varYok("uc-kabizlik", "Kabızlık var mı?", "Kabızlık mevcut.", "Kabızlık yok."),
+        {
+          id: "uc-karin-agri",
+          label: "Karın ağrısı var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "yer", type: "text", label: "Yeri", placeholder: "ör. sol alt kadran" },
+                { name: "karakter", type: "select", label: "Karakter", options: ["kramp tarzında", "sürekli"] },
+                {
+                  name: "iliski", type: "select", label: "Dışkılama ile ilişki",
+                  options: ["dışkılamayla artıyor", "dışkılamayla azalıyor", "dışkılamayla değişmiyor"]
+                }
+              ],
+              build: (v) =>
+                `${buyukHarfBasla(v.yer || "…")} yerleşimli, ${v.karakter || "…"}, ` +
+                `${v.iliski || "…"} karın ağrısı tarifliyor.`
+            },
+            { key: "no", label: "Yok", build: () => "Karın ağrısı yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-febril",
+          label: "Evde febril yükseklik var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "derece", type: "text", label: "En yüksek ölçülen (°C)", placeholder: "ör. 38.5" }],
+              build: (v) => `Evde febril yükseklik mevcut (en yüksek ${v.derece || "…"} °C ölçülmüş).`
+            },
+            { key: "no", label: "Yok", build: () => "Evde febril yükseklik yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-kilo",
+          label: "Kilo kaybı var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "miktar", type: "text", label: "Süre ve miktar", placeholder: "ör. 3 ayda 6 kg" }],
+              build: (v) => `Kilo kaybı mevcut (${v.miktar || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Kilo kaybı yok." },
+            SKIP
+          ]
+        },
+        checklistVarYok("uc-sistemik", "Eşlik eden sistemik semptomlar",
+          ["halsizlik", "iştahsızlık", "çarpıntı", "baş dönmesi"])
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "uc-komplikasyon",
+      title: "Komplikasyon ve Diğer Sorgular",
+      blocks: [
+        checklistVarYok("uc-gis", "Bulantı-kusma / karında şişkinlik / gaz-gaita çıkaramama",
+          ["bulantı-kusma", "karında şişkinlik", "gaz-gaita çıkaramama"]),
+        varYok("uc-toksik-megakolon", "Toksik megakolon öyküsü var mı?",
+          "Toksik megakolon öyküsü mevcut.", "Toksik megakolon öyküsü yok."),
+        varYok("uc-transfuzyon", "Kan transfüzyonu öyküsü var mı?",
+          "Kan transfüzyonu öyküsü mevcut.", "Kan transfüzyonu öyküsü yok.")
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "uc-ekstraintestinal",
+      title: "Ekstraintestinal Bulgular",
+      blocks: [
+        varYok("uc-spa", "SpA (spondiloartropati) öyküsü var mı?",
+          "SpA öyküsü mevcut.", "SpA öyküsü yok."),
+        varYok("uc-uveit", "Üveit var mı?", "Üveit öyküsü mevcut.", "Üveit yok."),
+        {
+          id: "uc-oral-aft",
+          label: "Oral aft var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "sayi", type: "text", label: "Yılda kaç kez", placeholder: "ör. 4" }],
+              build: (v) => `Oral aft mevcut (yılda ${v.sayi || "…"} kez).`
+            },
+            { key: "no", label: "Yok", build: () => "Oral aft yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "uc-eritema",
+          label: "Eritema nodozum durumu",
+          default: "skip",
+          modes: [
+            { key: "aktif", label: "Güncel var", build: () => "Eritema nodozum güncel olarak mevcut." },
+            {
+              key: "oyku", label: "Öyküsü var (güncel yok)",
+              fields: [{ name: "gecmis", type: "text", label: "Geçmiş öykü", placeholder: "ör. 2022'de iki epizod" }],
+              build: (v) =>
+                `Eritema nodozum öyküsü mevcut, güncel olarak aktif değil (${v.gecmis || "…"}).`
+            },
+            { key: "yok", label: "Yok", build: () => "Eritema nodozum öyküsü yok." },
+            SKIP
+          ]
+        },
+        varYok("uc-psk", "PSK (primer sklerozan kolanjit) öyküsü var mı?",
+          "PSK öyküsü mevcut.", "PSK öyküsü yok.")
       ]
     }
   ]

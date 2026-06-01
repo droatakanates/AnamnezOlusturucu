@@ -3,14 +3,19 @@
  * Şemayı forma dönüştürür, durumu tutar, canlı taslak üretir.
  * ====================================================================== */
 
-const TEMPLATES = { hipertansiyon: HIPERTANSIYON_SEMA };
+const TEMPLATES = {
+  hipertansiyon: HIPERTANSIYON_SEMA,
+  "ulseratif-kolit": ULSERATIF_KOLIT_SEMA
+};
 
 const form = document.getElementById("anamnez-form");
 const preview = document.getElementById("preview");
 const toast = document.getElementById("toast");
+const subtitle = document.getElementById("subtitle");
 
 let schema = TEMPLATES.hipertansiyon;
 let state = {}; // blockId -> { mode, values:{} } | semptom: { symptomId: {freq, artan} }
+let conditionalEls = []; // koşullu görünür bloklar: [{ block, el }]
 
 /* ---------- Durum başlatma ---------- */
 function initState() {
@@ -30,17 +35,26 @@ function initState() {
 /* ---------- Form oluşturma ---------- */
 function renderForm() {
   form.innerHTML = "";
+  conditionalEls = [];
   schema.groups.forEach((group) => {
     const section = document.createElement("fieldset");
     section.className = "group";
     section.innerHTML = `<legend>${group.title}</legend>`;
 
     group.blocks.forEach((block) => {
-      section.appendChild(
-        block.type === "symptoms" ? renderSymptomBlock(block) : renderBlock(block)
-      );
+      const el = block.type === "symptoms" ? renderSymptomBlock(block) : renderBlock(block);
+      if (typeof block.visibleIf === "function") conditionalEls.push({ block, el });
+      section.appendChild(el);
     });
     form.appendChild(section);
+  });
+  applyVisibility();
+}
+
+/* Koşullu blokların görünürlüğünü günceller */
+function applyVisibility() {
+  conditionalEls.forEach(({ block, el }) => {
+    el.style.display = block.visibleIf(state) ? "" : "none";
   });
 }
 
@@ -91,6 +105,10 @@ function renderFields(block, host) {
   if (!mode || !mode.fields) return;
 
   mode.fields.forEach((f) => {
+    if (f.type === "multi") {
+      host.appendChild(renderMultiField(block, f));
+      return;
+    }
     const id = `${block.id}__${f.name}`;
     const row = document.createElement("label");
     row.className = "field";
@@ -130,6 +148,42 @@ function renderFields(block, host) {
     row.appendChild(input);
     host.appendChild(row);
   });
+}
+
+/* Çoklu seçim (checkbox) alanı */
+function renderMultiField(block, f) {
+  const wrap = document.createElement("div");
+  wrap.className = "field field-multi";
+
+  const cap = document.createElement("span");
+  cap.className = "field-label";
+  cap.textContent = f.label;
+  wrap.appendChild(cap);
+
+  const box = document.createElement("div");
+  box.className = "checks";
+  const saved = state[block.id].values[f.name] || [];
+
+  f.options.forEach((opt) => {
+    const lbl = document.createElement("label");
+    lbl.className = "check";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = saved.includes(opt);
+    cb.addEventListener("change", () => {
+      const cur = new Set(state[block.id].values[f.name] || []);
+      cb.checked ? cur.add(opt) : cur.delete(opt);
+      // seçenek sırasını koru
+      state[block.id].values[f.name] = f.options.filter((o) => cur.has(o));
+      generate();
+    });
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(opt));
+    box.appendChild(lbl);
+  });
+
+  wrap.appendChild(box);
+  return wrap;
 }
 
 /* Semptom matrisi bloğu */
@@ -212,11 +266,14 @@ function renderSymptomBlock(block) {
 
 /* ---------- Taslak üretimi ---------- */
 function generate() {
+  applyVisibility();
   const paragraphs = [];
 
   schema.groups.forEach((group) => {
     const sentences = [];
     group.blocks.forEach((block) => {
+      // Koşulu sağlanmayan blok taslağa işlenmez
+      if (typeof block.visibleIf === "function" && !block.visibleIf(state)) return;
       if (block.type === "symptoms") {
         const txt = buildSymptoms(block.symptoms, state[block.id]);
         if (txt) sentences.push(txt);
@@ -279,7 +336,12 @@ document.getElementById("template-select").addEventListener("change", (e) => {
   initState();
   renderForm();
   generate();
+  updateSubtitle();
 });
+
+function updateSubtitle() {
+  if (subtitle) subtitle.textContent = `${schema.title} — form bazlı taslak`;
+}
 
 let toastTimer;
 function showToast(msg) {
@@ -293,3 +355,4 @@ function showToast(msg) {
 initState();
 renderForm();
 generate();
+updateSubtitle();
