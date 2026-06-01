@@ -31,6 +31,13 @@ function buyukHarfBasla(s) {
   return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
 }
 
+/* ISO tarihi (yyyy-mm-dd) "gg.aa.yyyy" biçimine çevirir */
+function fmtDate(iso) {
+  if (!iso) return "…";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+
 /* Basit Var/Yok bloğu üreticisi (tekrarı azaltmak için) */
 function varYok(id, label, varText, yokText) {
   return {
@@ -844,6 +851,513 @@ const ULSERATIF_KOLIT_SEMA = {
         },
         varYok("uc-psk", "PSK (primer sklerozan kolanjit) öyküsü var mı?",
           "PSK öyküsü mevcut.", "PSK öyküsü yok.")
+      ]
+    }
+  ]
+};
+
+/* =========================================================================
+ * TİP 2 DİYABETES MELLİTUS ANAMNEZİ
+ * ====================================================================== */
+const TIP2_DM_SEMA = {
+  id: "tip2-dm",
+  title: "Tip 2 Diabetes Mellitus Anamnezi",
+  groups: [
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-tani-takip",
+      title: "Tanı, Tedavi ve Metabolik Takip",
+      blocks: [
+        {
+          id: "dm-tani",
+          label: "Tanı zamanı ve başvuru şekli biliniyor mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2018" },
+                {
+                  name: "merkez", type: "select", label: "Başvuru / tanı şekli",
+                  options: [
+                    "aile hekimliği",
+                    "dahiliye polikliniği",
+                    "acil servis",
+                    "ev ölçümlerinin yüksek gelmesi"
+                  ]
+                }
+              ],
+              build: (v) =>
+                `Hasta ${v.yil || "…"} yılında ${v.merkez || "…"} başvurusu sonucu tanı almış.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-oad",
+          label: "Güncel oral antidiyabetik kullanıyor mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "oad", type: "text", label: "Oral antidiyabetik(ler) ve doz", placeholder: "ör. metformin 1000 mg 2x1, empagliflozin 10 mg 1x1" }
+              ],
+              build: (v) => `Güncel olarak ${v.oad || "…"} kullanıyormuş.`
+            },
+            { key: "no", label: "Yok", build: () => "Oral antidiyabetik kullanmıyormuş." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-insulin",
+          label: "İnsülin kullanım öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "doz", type: "text", label: "İnsülin tipi ve dozları", placeholder: "ör. glarjin 24Ü gece, aspart 3x8Ü" }],
+              build: (v) => `İnsülin kullanımı mevcut (${v.doz || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "İnsülin kullanım öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-evde-takip",
+          label: "Evde düzenli kan şekeri takibi yapıyor mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Yapıyor",
+              fields: [
+                { name: "acks", type: "text", label: "Açlık kan şekeri", placeholder: "ör. 110-130 mg/dL" },
+                { name: "tokluk", type: "text", label: "Tokluk kan şekeri", placeholder: "ör. 160-190 mg/dL" }
+              ],
+              build: (v) =>
+                `Evde düzenli kan şekeri takibi yapıyormuş (açlık: ${v.acks || "…"}, tokluk: ${v.tokluk || "…"}).`
+            },
+            { key: "no", label: "Yapmıyor", build: () => "Evde düzenli kan şekeri takibi yapmıyormuş." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-hba1c",
+          label: "Son HbA1c değeri",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "date", label: "Tarih" },
+                { name: "deger", type: "text", label: "HbA1c (%)", placeholder: "ör. 7.8" }
+              ],
+              build: (v) =>
+                `Son bakılan HbA1c değeri ${fmtDate(v.tarih)} tarihinde %${v.deger || "…"} olarak sonuçlanmış.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-hiperglisemik-acil",
+          label: "Hiperglisemik acil servis başvurusu var mı?",
+          default: "skip",
+          modes: [
+            { key: "yes", label: "Var", build: () => "Hiperglisemik acil servis başvurusu öyküsü mevcut." },
+            { key: "no", label: "Yok", build: () => "Hiperglisemik acil servis başvurusu yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-dka-hhs",
+          label: "DKA / HHS öyküsü var mı?",
+          default: "skip",
+          visibleIf: (state) => state["dm-hiperglisemik-acil"] &&
+            state["dm-hiperglisemik-acil"].mode === "yes",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "tip", type: "select", label: "Tip", options: ["DKA", "HHS"] },
+                { name: "yatis", type: "select", label: "Hastane yatışı", options: ["yatış olmuş", "yatış olmamış"] },
+                { name: "gun", type: "text", label: "Yatış süresi (gün)", placeholder: "ör. 5" }
+              ],
+              build: (v) =>
+                `${v.tip || "DKA/HHS"} öyküsü mevcut; ` +
+                (v.yatis === "yatış olmamış"
+                  ? "bu nedenle hastane yatışı olmamış."
+                  : `bu nedenle ${v.gun || "…"} günlük hastane yatışı olmuş.`)
+            },
+            { key: "no", label: "Yok", build: () => "DKA/HHS öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-hipergli-yatis",
+          label: "Hiperglisemi nedenli servis yatışı olmuş mu?",
+          default: "skip",
+          visibleIf: (state) =>
+            state["dm-hiperglisemik-acil"] && state["dm-hiperglisemik-acil"].mode === "yes" &&
+            state["dm-dka-hhs"] && state["dm-dka-hhs"].mode === "no",
+          modes: [
+            { key: "yes", label: "Olmuş", build: () => "Hiperglisemi nedenli servis yatışı olmuş." },
+            { key: "no", label: "Olmamış", build: () => "Hiperglisemi nedenli servis yatışı olmamış." },
+            SKIP
+          ]
+        },
+        varYok("dm-diyet", "Diyabetik diyet uyumu var mı?",
+          "Diyabetik diyet uyumu mevcut.", "Diyabetik diyet uyumu yok."),
+        {
+          id: "dm-egzersiz",
+          label: "Haftalık egzersiz durumu",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [{ name: "egz", type: "text", label: "Egzersiz durumu", placeholder: "ör. Haftada 3 gün 30 dakika tempolu yürüyüş yapıyor" }],
+              build: (v) => `${buyukHarfBasla(v.egz || "…")}.`
+            },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-goz",
+      title: "Diyabetik Retinopati / Göz",
+      blocks: [
+        varYok("dm-sinek", "Gözlerinde sinek uçuşması var mı?",
+          "Gözlerinde sinek uçuşması tarifliyor.", "Gözlerinde sinek uçuşması yok."),
+        varYok("dm-elektrik", "Gözlerinde elektrik çarpması hissi var mı?",
+          "Gözlerinde elektrik çarpması hissi tarifliyor.", "Gözlerinde elektrik çarpması hissi yok."),
+        {
+          id: "dm-goz-poliklinik",
+          label: "Düzenli yıllık göz hastalıkları polikliniği başvurusu var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "son", type: "text", label: "Son başvuru tarihi", placeholder: "ör. Mart 2025" }],
+              build: (v) =>
+                `Düzenli yıllık göz hastalıkları polikliniği başvurusu mevcut (son başvuru: ${v.son || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Düzenli yıllık göz hastalıkları polikliniği başvurusu yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-retinopati",
+          label: "Bilinen diyabetik retinopati var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "tedavi", type: "text", label: "Tedavi öyküsü", placeholder: "ör. 2023'te bilateral fokal lazer fotokoagülasyon" }],
+              build: (v) => `Diyabetik retinopati mevcut (tedavi öyküsü: ${v.tedavi || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Bilinen diyabetik retinopati yok." },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-nefropati",
+      title: "Diyabetik Nefropati",
+      blocks: [
+        {
+          id: "dm-nefro-tarama",
+          label: "Diyabetik nefropati açısından tarandı mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Tarandı",
+              fields: [
+                { name: "tarih", type: "date", label: "Tarama tarihi" },
+                { name: "ac", type: "text", label: "Albümin/kreatinin (mg/g)", placeholder: "ör. 28" },
+                { name: "pc", type: "text", label: "Protein/kreatinin (mg/g)", placeholder: "ör. 150" }
+              ],
+              build: (v) =>
+                `Diyabetik nefropati açısından en son ${fmtDate(v.tarih)} tarihinde spot idrar ` +
+                `albümin/kreatinin ve protein/kreatinin ile taranmış (albümin/kreatinin: ${v.ac || "…"} mg/g, ` +
+                `protein/kreatinin: ${v.pc || "…"} mg/g).`
+            },
+            { key: "no", label: "Taranmamış", build: () => "Diyabetik nefropati açısından daha önce hiç taranmamış." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-kreatinin-gfr",
+          label: "Güncel kreatinin ve GFR değeri",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "kreatinin", type: "text", label: "Kreatinin", placeholder: "ör. 0.9 mg/dL" },
+                { name: "gfr", type: "text", label: "GFR", placeholder: "ör. 88 mL/dk/1.73m²" }
+              ],
+              build: (v) => `Güncel kreatinin değeri ${v.kreatinin || "…"}, GFR ${v.gfr || "…"} olarak ölçülmüş.`
+            },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-noropati",
+      title: "Diyabetik Nöropati",
+      blocks: [
+        {
+          id: "dm-noropati-tani",
+          label: "Bilinen diyabetik nöropati tanısı var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2021" },
+                { name: "emg", type: "select", label: "EMG", options: ["EMG yapılmamış", "EMG yapılmış"] },
+                { name: "emgTarih", type: "date", label: "EMG tarihi" },
+                { name: "emgSonuc", type: "text", label: "EMG sonucu", placeholder: "ör. sensorimotor polinöropati" },
+                { name: "tedavi", type: "text", label: "Nöropati tedavisi", placeholder: "ör. pregabalin 75 mg 2x1" }
+              ],
+              build: (v) => {
+                let s = `${v.yil || "…"} yılında diyabetik nöropati tanısı almış.`;
+                if (v.emg === "EMG yapılmış")
+                  s += ` ${fmtDate(v.emgTarih)} tarihinde yapılan EMG ${v.emgSonuc || "…"} olarak sonuçlanmış.`;
+                if (v.tedavi) s += ` Diyabetik nöropatiye yönelik ${v.tedavi} tedavisi kullanıyormuş.`;
+                return s;
+              }
+            },
+            { key: "no", label: "Yok", build: () => "Bilinen diyabetik nöropati tanısı yok." },
+            SKIP
+          ]
+        },
+        varYok("dm-yanma", "Ellerde ve ayaklarda yanma/batma/uyuşukluk var mı?",
+          "Ellerde ve ayaklarda yanma/batma/uyuşukluk tarifliyor.",
+          "Ellerde ve ayaklarda yanma/batma/uyuşukluk yok."),
+        {
+          id: "dm-eldiven-corap",
+          label: "Eldiven-çorap tarzında uyuşma var mı?",
+          default: "skip",
+          visibleIf: (state) => state["dm-yanma"] && state["dm-yanma"].mode === "yes",
+          modes: [
+            { key: "yes", label: "Var", build: () => "Uyuşma eldiven-çorap tarzında dağılım gösteriyormuş." },
+            { key: "no", label: "Yok", build: () => "Eldiven-çorap tarzında uyuşma yok." },
+            SKIP
+          ]
+        },
+        varYok("dm-sicak-soguk", "Sıcak-soğuk ayrımında azalma var mı?",
+          "Sıcak-soğuk ayrımında azalma tarifliyor.", "Sıcak-soğuk ayrımında azalma yok."),
+        varYok("dm-his-azalma", "Ayaklarda his azalması var mı?",
+          "Ayaklarda his azalması mevcut.", "Ayaklarda his azalması yok.")
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-ayak-otonom",
+      title: "Diyabetik Ayak ve Otonom Disfonksiyon",
+      blocks: [
+        {
+          id: "dm-ayak",
+          label: "Diyabetik ayak öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "taraf", type: "select", label: "Taraf", options: ["sağ", "sol", "bilateral"] },
+                { name: "sure", type: "text", label: "Kaç yıl önce", placeholder: "ör. 2 yıl" },
+                { name: "tedavi", type: "text", label: "Aldığı tedavi", placeholder: "ör. debridman + antibiyoterapi" }
+              ],
+              build: (v) =>
+                `Diyabetik ayak öyküsü mevcut (${v.taraf || "…"}, ${v.sure || "…"} önce; ` +
+                `aldığı tedavi: ${v.tedavi || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Diyabetik ayak öyküsü yok." },
+            SKIP
+          ]
+        },
+        varYok("dm-amputasyon", "Ampütasyon öyküsü var mı?",
+          "Ampütasyon öyküsü mevcut.", "Ampütasyon öyküsü yok."),
+        varYok("dm-ortostatizm", "Ortostatizm var mı?", "Ortostatizm mevcut.", "Ortostatizm yok."),
+        varYok("dm-tasikardi", "İstirahat taşikardisi var mı?",
+          "İstirahat taşikardisi mevcut.", "İstirahat taşikardisi yok."),
+        varYok("dm-erken-doyma", "Erken doyma var mı?", "Erken doyma tarifliyor.", "Erken doyma yok."),
+        varYok("dm-bulanti", "Bulantı-kusma var mı?", "Bulantı-kusma tarifliyor.", "Bulantı-kusma yok."),
+        varYok("dm-siskinlik", "Şişkinlik var mı?", "Şişkinlik tarifliyor.", "Şişkinlik yok."),
+        varYok("dm-hazimsizlik", "Hazımsızlık var mı?", "Hazımsızlık tarifliyor.", "Hazımsızlık yok."),
+        {
+          id: "dm-gastroparezi",
+          label: "Bilinen diyabetik gastroparezi tanısı var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "tarih", type: "date", label: "Tetkik tarihi" },
+                { name: "tetkik", type: "text", label: "Mide boşalma çalışması sonucu", placeholder: "ör. gecikmiş mide boşalması" }
+              ],
+              build: (v) =>
+                `Bilinen diyabetik gastroparezi tanısı mevcut (${fmtDate(v.tarih)} tarihli mide boşalma çalışması: ${v.tetkik || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Bilinen diyabetik gastroparezi tanısı yok." },
+            SKIP
+          ]
+        },
+        varYok("dm-gece-ishal", "Gece ishalleri var mı?", "Gece ishalleri tarifliyor.", "Gece ishalleri yok."),
+        {
+          id: "dm-donusumlu",
+          label: "Dönüşümlü ishal ve kabızlık oluyor mu?",
+          default: "skip",
+          modes: [
+            { key: "yes", label: "Oluyor", build: () => "Dönüşümlü ishal ve kabızlık oluyormuş." },
+            { key: "no", label: "Olmuyor", build: () => "Dönüşümlü ishal ve kabızlık olmuyormuş." },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "dm-makrovaskuler",
+      title: "Makrovasküler ve Kardiyak Değerlendirme",
+      blocks: [
+        {
+          id: "dm-mi",
+          label: "MI (miyokard enfarktüsü) öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "yil", type: "text", label: "CAG yılı", placeholder: "ör. 2020" },
+                { name: "pkg", type: "text", label: "Uygulanan PKG", placeholder: "ör. LAD" }
+              ],
+              build: (v) =>
+                `Miyokard enfarktüsü öyküsü mevcut; ${v.yil || "…"} yılında CAG yapılmış ve ` +
+                `${v.pkg || "…"} PKG uygulanmış.`
+            },
+            { key: "no", label: "Yok", build: () => "Miyokard enfarktüsü öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-cabg",
+          label: "CABG öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "tarih", type: "text", label: "Tarih", placeholder: "ör. 2019" }],
+              build: (v) => `CABG öyküsü mevcut (${v.tarih || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "CABG öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-svo",
+          label: "SVO öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "tip", type: "select", label: "Tip", options: ["iskemik", "hemorajik"] },
+                { name: "sekel", type: "select", label: "Sekel", options: ["sekelsiz", "sekelli"] },
+                { name: "sekelDetay", type: "text", label: "Sekel detayı", placeholder: "ör. sağ hemiparezi" }
+              ],
+              build: (v) =>
+                `${buyukHarfBasla(v.tip || "…")} SVO öyküsü mevcut, ${v.sekel || "sekelsiz"}` +
+                (v.sekel === "sekelli" ? ` (${v.sekelDetay || "…"})` : "") + "."
+            },
+            { key: "no", label: "Yok", build: () => "SVO öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-pah",
+          label: "PAH (periferik arter hastalığı) var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "kladikasyon", type: "select", label: "Kladikasyon", options: ["kladikasyon mevcut", "kladikasyon yok"] }
+              ],
+              build: (v) => `Periferik arter hastalığı mevcut (${v.kladikasyon || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Periferik arter hastalığı öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-periferal-girisim",
+          label: "Periferik anjiyografik girişim öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "tarih", type: "text", label: "Tarih", placeholder: "ör. 2022" },
+                { name: "islem", type: "text", label: "Yapılan işlem", placeholder: "ör. SFA balon anjiyoplasti + stent" }
+              ],
+              build: (v) =>
+                `Periferik anjiyografik girişim öyküsü mevcut (${v.tarih || "…"}, ${v.islem || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Periferik anjiyografik girişim öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "dm-fonksiyonel",
+          label: "Fonksiyonel kapasite (yastık / merdiven)",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "yastik", type: "text", label: "Kaç yastıkla uyuyor", placeholder: "ör. tek" },
+                { name: "merdiven", type: "text", label: "Yorulmadan çıkabildiği kat", placeholder: "ör. 2" }
+              ],
+              build: (v) =>
+                `Hasta ${v.yastik || "…"} yastıkla uyuyormuş. ${v.merdiven || "…"} kat merdiveni ` +
+                `yorulmadan çıkabiliyormuş.`
+            },
+            SKIP
+          ]
+        },
+        varYok("dm-pnd", "PND (paroksismal nokturnal dispne) var mı?",
+          "Paroksismal nokturnal dispne tarifliyor.", "Paroksismal nokturnal dispne yok."),
+        varYok("dm-ortopne", "Ortopne var mı?", "Ortopne tarifliyor.", "Ortopne yok."),
+        varYok("dm-efor-dispne", "Efor dispnesi var mı?", "Efor dispnesi tarifliyor.", "Efor dispnesi yok."),
+        {
+          id: "dm-eko",
+          label: "Son ekokardiyografi",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "date", label: "Tarih" },
+                { name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. EF %60, diyastolik disfonksiyon" }
+              ],
+              build: (v) =>
+                `Son yapılan ekokardiyografi ${fmtDate(v.tarih)} tarihinde ${v.sonuc || "…"} olarak sonuçlanmış.`
+            },
+            SKIP
+          ]
+        }
       ]
     }
   ]

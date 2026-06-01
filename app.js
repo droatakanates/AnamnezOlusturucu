@@ -5,7 +5,8 @@
 
 const TEMPLATES = {
   hipertansiyon: HIPERTANSIYON_SEMA,
-  "ulseratif-kolit": ULSERATIF_KOLIT_SEMA
+  "ulseratif-kolit": ULSERATIF_KOLIT_SEMA,
+  "tip2-dm": TIP2_DM_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
@@ -185,7 +186,7 @@ function renderFields(block, host) {
       });
     } else {
       input = document.createElement("input");
-      input.type = f.type === "number" ? "number" : "text";
+      input.type = f.type === "number" ? "number" : f.type === "date" ? "date" : "text";
       if (f.placeholder) input.placeholder = f.placeholder;
     }
     input.id = id;
