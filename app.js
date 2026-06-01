@@ -12,6 +12,11 @@ const form = document.getElementById("anamnez-form");
 const preview = document.getElementById("preview");
 const toast = document.getElementById("toast");
 const subtitle = document.getElementById("subtitle");
+const navList = document.getElementById("section-nav-list");
+const layout = document.getElementById("layout");
+const progressBar = document.getElementById("progress-bar");
+const progressLabel = document.getElementById("progress-label");
+const wordCount = document.getElementById("word-count");
 
 let schema = TEMPLATES.hipertansiyon;
 let state = {}; // blockId -> { mode, values:{} } | semptom: { symptomId: {freq, artan} }
@@ -35,20 +40,70 @@ function initState() {
 /* ---------- Form oluşturma ---------- */
 function renderForm() {
   form.innerHTML = "";
+  navList.innerHTML = "";
   conditionalEls = [];
-  schema.groups.forEach((group) => {
-    const section = document.createElement("fieldset");
-    section.className = "group";
-    section.innerHTML = `<legend>${group.title}</legend>`;
 
+  schema.groups.forEach((group, i) => {
+    const num = i + 1;
+    const section = document.createElement("section");
+    section.className = "group";
+    section.id = `grp-${group.id}`;
+
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML =
+      `<span class="group-num">${num}</span><h3>${group.title}</h3>`;
+    section.appendChild(head);
+
+    const body = document.createElement("div");
+    body.className = "group-body";
     group.blocks.forEach((block) => {
       const el = block.type === "symptoms" ? renderSymptomBlock(block) : renderBlock(block);
       if (typeof block.visibleIf === "function") conditionalEls.push({ block, el });
-      section.appendChild(el);
+      body.appendChild(el);
     });
+    section.appendChild(body);
     form.appendChild(section);
+
+    // Bölüm navigasyon bağlantısı
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `#grp-${group.id}`;
+    a.innerHTML = `<span class="nav-num">${num}</span><span>${group.title}</span>`;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById(`grp-${group.id}`)
+        .scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    li.appendChild(a);
+    navList.appendChild(li);
   });
+
   applyVisibility();
+  setupScrollSpy();
+}
+
+/* Aktif bölümü navigasyonda vurgular */
+let scrollSpy;
+function setupScrollSpy() {
+  if (scrollSpy) scrollSpy.disconnect();
+  const links = Array.from(navList.querySelectorAll("a"));
+  scrollSpy = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          const id = en.target.id;
+          links.forEach((l) =>
+            l.classList.toggle("active", l.getAttribute("href") === `#${id}`));
+        }
+      });
+    },
+    { rootMargin: "-140px 0px -65% 0px", threshold: 0 }
+  );
+  schema.groups.forEach((g) => {
+    const sec = document.getElementById(`grp-${g.id}`);
+    if (sec) scrollSpy.observe(sec);
+  });
 }
 
 /* Koşullu blokların görünürlüğünü günceller */
@@ -290,15 +345,40 @@ function generate() {
 
   if (paragraphs.length === 0) {
     preview.innerHTML =
-      '<p class="preview-empty">Soruları yanıtladıkça taslak burada oluşacak.</p>';
+      '<p class="preview-empty">Soruları yanıtladıkça anamnez taslağı burada oluşacak.</p>';
     preview.dataset.text = "";
-    return;
+  } else {
+    preview.innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+    preview.dataset.text = paragraphs.join("\n\n");
   }
 
-  preview.innerHTML = paragraphs
-    .map((p) => `<p>${escapeHtml(p)}</p>`)
-    .join("");
-  preview.dataset.text = paragraphs.join("\n\n");
+  updateProgress();
+  updateWordCount(preview.dataset.text);
+}
+
+/* Yanıtlanan (atlanmamış) blok oranını hesaplar */
+function updateProgress() {
+  let total = 0, done = 0;
+  schema.groups.forEach((group) => {
+    group.blocks.forEach((block) => {
+      if (typeof block.visibleIf === "function" && !block.visibleIf(state)) return;
+      total++;
+      if (block.type === "symptoms") {
+        const answered = Object.values(state[block.id]).some((s) => s.freq && s.freq !== "atla");
+        if (answered) done++;
+      } else if (state[block.id].mode !== "skip") {
+        done++;
+      }
+    });
+  });
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  progressBar.style.width = pct + "%";
+  progressLabel.textContent = `%${pct}`;
+}
+
+function updateWordCount(text) {
+  const n = text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+  wordCount.textContent = `${n} kelime`;
 }
 
 function escapeHtml(s) {
@@ -329,6 +409,21 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   renderForm();
   generate();
   showToast("Form temizlendi.");
+});
+
+document.getElementById("print-btn").addEventListener("click", () => {
+  if (!preview.dataset.text) return showToast("Henüz oluşturulmuş bir taslak yok.");
+  window.print();
+});
+
+/* Mobil görünüm geçişi (Sorular / Taslak) */
+document.querySelectorAll(".ms-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".ms-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    layout.dataset.mobileView = btn.dataset.view;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 });
 
 document.getElementById("template-select").addEventListener("change", (e) => {

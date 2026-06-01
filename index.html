@@ -3,72 +3,110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Anamnez Oluşturucu — Hipertansiyon</title>
-  <meta name="description" content="Form bazlı soru-cevaplarla hipertansiyon anamnez taslağı üreten araç." />
+  <title>Anamnez Oluşturucu</title>
+  <meta name="description" content="Form bazlı soru-cevaplarla anamnez taslağı üreten klinik araç." />
   <!-- Gizlilik: tüm dış bağlantılar engellenir; hiçbir veri dışarı gitmez. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'none'" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="wrap header-inner">
+  <!-- ÜST NAVİGASYON -->
+  <header class="navbar">
+    <div class="wrap navbar-inner">
       <div class="brand">
-        <span class="brand-mark">℞</span>
-        <div>
-          <h1>Anamnez Oluşturucu</h1>
-          <p class="subtitle" id="subtitle">Form bazlı taslak üretimi</p>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
+            <path d="M3.5 12h4l1.5-3 3 6 1.5-3h4"/>
+          </svg>
+        </span>
+        <div class="brand-text">
+          <strong>Anamnez Oluşturucu</strong>
+          <span id="subtitle">Form bazlı klinik taslak</span>
         </div>
       </div>
-      <div class="header-actions">
-        <select id="template-select" class="template-select" aria-label="Şablon seçimi">
-          <option value="hipertansiyon">Hipertansiyon Anamnezi</option>
-          <option value="ulseratif-kolit">Ülseratif Kolit Anamnezi</option>
-        </select>
-      </div>
+      <nav class="nav-links" aria-label="Üst menü">
+        <span class="nav-tag">test sürümü</span>
+      </nav>
     </div>
   </header>
 
-  <main class="wrap layout">
-    <!-- SORU FORMU -->
-    <section class="form-pane" aria-label="Soru formu">
-      <div class="pane-head">
-        <h2>Sorular</h2>
-        <button id="reset-btn" class="btn btn-ghost" type="button">Tümünü Temizle</button>
+  <!-- ARAÇ ÇUBUĞU -->
+  <div class="toolbar">
+    <div class="wrap toolbar-inner">
+      <label class="select-field">
+        <span class="select-caption">Anamnez şablonu</span>
+        <select id="template-select" aria-label="Şablon seçimi">
+          <option value="hipertansiyon">Hipertansiyon</option>
+          <option value="ulseratif-kolit">Ülseratif Kolit</option>
+        </select>
+      </label>
+
+      <div class="progress-block" title="Yanıtlanan bölüm oranı">
+        <div class="progress-meta">
+          <span>İlerleme</span>
+          <span id="progress-label">%0</span>
+        </div>
+        <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
       </div>
-      <p class="hint">
-        Her soruda <strong>Evet/Var</strong> seçilirse boşlukları doldurun,
-        <strong>Hayır/Yok</strong> sabit olumsuz cümleyi ekler,
-        <strong>Atla</strong> o bölümü taslağa hiç işlemez.
-      </p>
+
+      <button id="reset-btn" class="btn btn-ghost" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Temizle
+      </button>
+    </div>
+  </div>
+
+  <!-- ANA İÇERİK -->
+  <main class="wrap layout" id="layout" data-mobile-view="form">
+    <!-- Bölüm navigasyonu -->
+    <aside class="section-nav" aria-label="Bölümler">
+      <p class="nav-title">Bölümler</p>
+      <ul id="section-nav-list"></ul>
+    </aside>
+
+    <!-- Soru formu -->
+    <section class="form-pane" aria-label="Soru formu">
       <form id="anamnez-form" autocomplete="off"></form>
     </section>
 
-    <!-- ÖNİZLEME -->
+    <!-- Önizleme -->
     <section class="preview-pane" aria-label="Anamnez taslağı önizleme">
-      <div class="pane-head sticky-head">
-        <h2>Anamnez Taslağı</h2>
-        <div class="preview-actions">
-          <button id="copy-btn" class="btn btn-primary" type="button">Kopyala</button>
+      <div class="paper-head">
+        <div>
+          <h2>Anamnez Taslağı</h2>
+          <span id="word-count" class="word-count">0 kelime</span>
+        </div>
+        <div class="paper-actions">
+          <button id="print-btn" class="btn btn-soft" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+            Yazdır
+          </button>
+          <button id="copy-btn" class="btn btn-primary" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Kopyala
+          </button>
         </div>
       </div>
-      <article id="preview" class="preview" aria-live="polite">
-        <p class="preview-empty">Soruları yanıtladıkça taslak burada oluşacak.</p>
+      <article id="preview" class="paper" aria-live="polite">
+        <p class="preview-empty">Soruları yanıtladıkça anamnez taslağı burada oluşacak.</p>
       </article>
-      <p class="disclaimer">
-        Bu araç yalnızca bir <strong>taslak</strong> üretir. Klinik karar ve son metin
-        hekimin sorumluluğundadır.
-      </p>
-      <p class="disclaimer privacy-note">
-        🔒 <strong>Gizlilik:</strong> Girdiğiniz bilgiler yalnızca bu cihazda, tarayıcı
-        belleğinde işlenir; hiçbir sunucuya gönderilmez ve <strong>hiçbir yerde
-        saklanmaz</strong>. Sayfayı kapattığınızda veya yenilediğinizde tüm veriler silinir.
-        Lütfen taslağa hasta adı, T.C. kimlik no gibi kimlik bilgileri girmeyin.
+      <p class="privacy-note">
+        🔒 Girdiğiniz bilgiler yalnızca bu cihazda işlenir; hiçbir sunucuya gönderilmez,
+        hiçbir yerde saklanmaz. Sayfa kapanınca silinir. Lütfen ad, T.C. kimlik no gibi
+        kimlik bilgileri girmeyin. Üretilen metin yalnızca bir taslaktır.
       </p>
     </section>
   </main>
 
+  <!-- Mobil görünüm geçişi -->
+  <div class="mobile-switch" role="tablist" aria-label="Görünüm">
+    <button class="ms-btn active" data-view="form" type="button">Sorular</button>
+    <button class="ms-btn" data-view="preview" type="button">Taslak</button>
+  </div>
+
   <footer class="app-footer">
-    <div class="wrap">Anamnez Oluşturucu · test sürümü</div>
+    <div class="wrap">Anamnez Oluşturucu · klinik taslak aracı · test sürümü</div>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
