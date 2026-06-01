@@ -217,6 +217,13 @@ body {
   color: var(--muted);
   margin: 12px 2px 0;
 }
+.privacy-note {
+  background: #f1f8f4;
+  border: 1px solid #cfe7d8;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #2c5a42;
+}
 
 /* ---------- Butonlar ---------- */
 .btn {

@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Anamnez Oluşturucu — Hipertansiyon</title>
   <meta name="description" content="Form bazlı soru-cevaplarla hipertansiyon anamnez taslağı üreten araç." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <!-- Gizlilik: tüm dış bağlantılar engellenir; hiçbir veri dışarı gitmez. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'none'" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -55,6 +56,12 @@
       <p class="disclaimer">
         Bu araç yalnızca bir <strong>taslak</strong> üretir. Klinik karar ve son metin
         hekimin sorumluluğundadır.
+      </p>
+      <p class="disclaimer privacy-note">
+        🔒 <strong>Gizlilik:</strong> Girdiğiniz bilgiler yalnızca bu cihazda, tarayıcı
+        belleğinde işlenir; hiçbir sunucuya gönderilmez ve <strong>hiçbir yerde
+        saklanmaz</strong>. Sayfayı kapattığınızda veya yenilediğinizde tüm veriler silinir.
+        Lütfen taslağa hasta adı, T.C. kimlik no gibi kimlik bilgileri girmeyin.
       </p>
     </section>
   </main>
