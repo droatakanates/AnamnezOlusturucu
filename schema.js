@@ -1388,11 +1388,25 @@ const KKY_SEMA = {
             SKIP
           ]
         },
-        checklistVarYok("kky-semptom", "Güncel semptomlar", [
-          "dispne", "efor dispnesi", "göğüs ağrısı", "ortopne",
-          "bilateral alt ekstremitede ödem", "PND", "halsizlik",
-          "karında şişkinlik", "istemsiz kilo artışı", "çarpıntı"
-        ]),
+        {
+          id: "kky-semptom",
+          type: "symptoms",
+          label:
+            "Güncel semptomları işaretleyin. Bir semptom tariflenecekse sıklığını seçin; " +
+            "yakın zamanda şiddetlendiyse ilgili kutuyu işaretleyin.",
+          symptoms: [
+            { id: "dispne", label: "dispne" },
+            { id: "efor-dispne", label: "efor dispnesi" },
+            { id: "gogus-agrisi", label: "göğüs ağrısı" },
+            { id: "ortopne", label: "ortopne" },
+            { id: "odem", label: "bilateral alt ekstremitede ödem" },
+            { id: "pnd", label: "PND" },
+            { id: "halsizlik", label: "halsizlik" },
+            { id: "karin-siskinlik", label: "karında şişkinlik" },
+            { id: "kilo-artisi", label: "istemsiz kilo artışı" },
+            { id: "carpinti", label: "çarpıntı" }
+          ]
+        },
         {
           id: "kky-tedavi",
           label: "Güncel tedavi ve dozları",
