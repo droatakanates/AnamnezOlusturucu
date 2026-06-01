@@ -1363,6 +1363,239 @@ const TIP2_DM_SEMA = {
   ]
 };
 
+/* =========================================================================
+ * KONJESTİF KALP YETMEZLİĞİ (KKY) ANAMNEZİ
+ * ====================================================================== */
+const KKY_SEMA = {
+  id: "kky",
+  title: "Konjestif Kalp Yetmezliği Anamnezi",
+  groups: [
+    /* ---------------------------------------------------------------- */
+    {
+      id: "kky-tani-semptom",
+      title: "Tanı, Semptom ve Tedavi",
+      blocks: [
+        {
+          id: "kky-tani",
+          label: "Tanı yılı biliniyor mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [{ name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2020" }],
+              build: (v) => `${v.yil || "…"} yılında kalp yetmezliği tanısı almış.`
+            },
+            SKIP
+          ]
+        },
+        checklistVarYok("kky-semptom", "Güncel semptomlar", [
+          "dispne", "efor dispnesi", "göğüs ağrısı", "ortopne",
+          "bilateral alt ekstremitede ödem", "PND", "halsizlik",
+          "karında şişkinlik", "istemsiz kilo artışı", "çarpıntı"
+        ]),
+        {
+          id: "kky-tedavi",
+          label: "Güncel tedavi ve dozları",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                {
+                  name: "tedavi", type: "text", label: "Güncel tedavi ve dozları",
+                  placeholder: "ör. sakubitril/valsartan 24/26 mg 2x1, dapagliflozin 10 mg 1x1, bisoprolol 5 mg 1x1, spironolakton 25 mg 1x1"
+                }
+              ],
+              build: (v) => `Güncel olarak ${v.tedavi || "…"} kullanıyormuş.`
+            },
+            SKIP
+          ]
+        },
+        {
+          id: "kky-eko",
+          label: "Son ekokardiyografi tarihi ve sonucu",
+          default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "date", label: "Tarih" },
+                { name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. EF %30, global hipokinezi, orta MY" }
+              ],
+              build: (v) =>
+                `Son yapılan ekokardiyografi ${fmtDate(v.tarih)} tarihinde ${v.sonuc || "…"} olarak sonuçlanmış.`
+            },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "kky-alevlenme",
+      title: "Alevlenme ve Yatış Öyküsü",
+      blocks: [
+        {
+          id: "kky-yatis",
+          label: "Son 1 yılda kalp yetmezliği alevlenmesi nedeniyle yatış oldu mu?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Oldu",
+              fields: [
+                { name: "sayi", type: "text", label: "Son 1 yıldaki yatış sayısı", placeholder: "ör. 2" },
+                { name: "yer", type: "select", label: "Son yatışın yeri", options: ["yoğun bakım", "servis"] },
+                { name: "gun", type: "text", label: "Kaç gün yattığı", placeholder: "ör. 6" },
+                { name: "tedavi", type: "text", label: "Aldığı tedaviler", placeholder: "ör. IV diüretik ve inotrop" },
+                { name: "taburcu", type: "date", label: "Taburcu tarihi" }
+              ],
+              build: (v) => {
+                const yer = v.yer === "servis"
+                  ? "servis koşullarında"
+                  : "yoğun bakım ünitesinde";
+                return (
+                  `Son bir yılda kalp yetmezliği alevlenmesi nedeniyle ${v.sayi || "…"} kez ` +
+                  `hastaneye yatışı olmuş. Son yatışı ${yer} ${v.gun || "…"} gün sürmüş; bu süreçte ` +
+                  `${v.tedavi || "…"} tedavileri uygulanmış ve ${fmtDate(v.taburcu)} tarihinde taburcu edilmiş.`
+                );
+              }
+            },
+            {
+              key: "no", label: "Olmadı",
+              build: () =>
+                "Son bir yılda kalp yetmezliği alevlenmesi nedeniyle hastaneye yatışı olmamış."
+            },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "kky-komorbidite",
+      title: "Makrovasküler / Komorbidite Öyküsü",
+      blocks: [
+        {
+          id: "kky-mi",
+          label: "MI (miyokard enfarktüsü) öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "yil", type: "text", label: "CAG yılı", placeholder: "ör. 2019" },
+                { name: "pkg", type: "text", label: "Uygulanan PKG", placeholder: "ör. LAD" }
+              ],
+              build: (v) =>
+                `Miyokard enfarktüsü öyküsü mevcut; ${v.yil || "…"} yılında CAG yapılmış ve ` +
+                `${v.pkg || "…"} PKG uygulanmış.`
+            },
+            { key: "no", label: "Yok", build: () => "Miyokard enfarktüsü öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "kky-svo",
+          label: "SVO öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "tip", type: "select", label: "Tip", options: ["iskemik", "hemorajik"] },
+                { name: "sekel", type: "select", label: "Sekel", options: ["sekelsiz", "sekelli"] },
+                { name: "sekelDetay", type: "text", label: "Sekel detayı", placeholder: "ör. sağ hemiparezi" }
+              ],
+              build: (v) =>
+                `${buyukHarfBasla(v.tip || "…")} SVO öyküsü mevcut, ${v.sekel || "sekelsiz"}` +
+                (v.sekel === "sekelli" ? ` (${v.sekelDetay || "…"})` : "") + "."
+            },
+            { key: "no", label: "Yok", build: () => "SVO öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "kky-pah",
+          label: "PAH (periferik arter hastalığı) öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "kladikasyon", type: "select", label: "Kladikasyon", options: ["kladikasyon mevcut", "kladikasyon yok"] },
+                { name: "girisim", type: "text", label: "Girişim öyküsü (varsa)", placeholder: "ör. 2022'de SFA stent" }
+              ],
+              build: (v) =>
+                `Periferik arter hastalığı mevcut (${v.kladikasyon || "…"}` +
+                (v.girisim ? `; ${v.girisim}` : "") + ")."
+            },
+            { key: "no", label: "Yok", build: () => "Periferik arter hastalığı öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "kky-kah",
+          label: "KAH (koroner arter hastalığı) öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "detay", type: "text", label: "Detay", placeholder: "ör. 2018'de LAD'ye PKG, bilinen 2 damar hastalığı" }],
+              build: (v) => `Koroner arter hastalığı öyküsü mevcut (${v.detay || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Bilinen koroner arter hastalığı öyküsü yok." },
+            SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ---------------------------------------------------------------- */
+    {
+      id: "kky-cihaz-aritmi",
+      title: "Cihaz ve Aritmi Öyküsü",
+      blocks: [
+        {
+          id: "kky-cihaz",
+          label: "ICD / CRT-D öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "cihaz", type: "select", label: "Cihaz", options: ["ICD", "CRT-D", "CRT-P"] },
+                { name: "tarih", type: "text", label: "İmplantasyon tarihi", placeholder: "ör. 2021" },
+                { name: "neden", type: "text", label: "Endikasyon (varsa)", placeholder: "ör. primer korunma" }
+              ],
+              build: (v) =>
+                `${v.cihaz || "ICD/CRT-D"} implantasyonu öyküsü mevcut (${v.tarih || "…"}` +
+                (v.neden ? `, ${v.neden}` : "") + ")."
+            },
+            { key: "no", label: "Yok", build: () => "ICD/CRT-D implantasyonu öyküsü yok." },
+            SKIP
+          ]
+        },
+        {
+          id: "kky-aritmi",
+          label: "Hayatı tehdit eden aritmi öyküsü var mı?",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [{ name: "detay", type: "text", label: "Detay", placeholder: "ör. 2022'de VT atağı, kardiyoversiyon" }],
+              build: (v) => `Hayatı tehdit eden aritmi öyküsü mevcut (${v.detay || "…"}).`
+            },
+            { key: "no", label: "Yok", build: () => "Hayatı tehdit eden aritmi öyküsü yok." },
+            SKIP
+          ]
+        }
+      ]
+    }
+  ]
+};
+
 /* Semptom matrisi cümle üreticisi */
 function buildSymptoms(symptoms, state) {
   const ara = [];

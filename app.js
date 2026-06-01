@@ -6,7 +6,8 @@
 const TEMPLATES = {
   hipertansiyon: HIPERTANSIYON_SEMA,
   "ulseratif-kolit": ULSERATIF_KOLIT_SEMA,
-  "tip2-dm": TIP2_DM_SEMA
+  "tip2-dm": TIP2_DM_SEMA,
+  kky: KKY_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
