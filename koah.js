@@ -1,8 +1,17 @@
 /* =========================================================================
  * KOAH (KRONİK OBSTRÜKTİF AKCİĞER HASTALIĞI) ANAMNEZİ
  * schema.js içindeki yardımcılara bağlıdır (varYok, varYokDetay, metinBlok,
- * secimBlok, durumBlok, checklistVarYok, checklistCustom, fmtDate ...).
+ * secimBlok, durumBlok, checklistVarYok, checklistCustom, fmtDate, joinVe ...).
  * ====================================================================== */
+
+/* SFT değerini "X L (%Y)" biçiminde, boş olanları atlayarak yazar */
+function koahLp(L, p) {
+  const a = L ? `${L} L` : "";
+  const b = p ? `%${p}` : "";
+  if (a && b) return `${a} (${b})`;
+  return a || b || "…";
+}
+
 const KOAH_SEMA = {
   id: "koah",
   title: "KOAH Anamnezi",
@@ -25,7 +34,7 @@ const KOAH_SEMA = {
               ],
               build: (v) =>
                 `${buyukHarfBasla(v.zaman || "…")} KOAH tanısı almış.` +
-                (v.yer ? ` Tanı ${v.yer} konulmuş.` : "")
+                (v.yer ? ` Tanısı ${v.yer} konulmuş.` : "")
             },
             SKIP
           ]
@@ -33,8 +42,8 @@ const KOAH_SEMA = {
         varYokDetay(
           "koah-gogus-takip", "Daha önce göğüs hastalıkları takibi var mı?",
           [{ name: "son", type: "text", label: "Son kontrol tarihi", placeholder: "ör. Mart 2025" }],
-          (v) => `Göğüs hastalıkları polikliniğinde takipliymiş (son kontrol: ${v.son || "…"}).`,
-          "Daha önce göğüs hastalıkları takibi yok."
+          (v) => `Göğüs hastalıkları polikliniğinde düzenli takipliymiş (son kontrolü ${v.son || "…"}).`,
+          "Daha önce göğüs hastalıkları takibi yokmuş."
         ),
         durumBlok("koah-sft", "Son bilinen SFT / spirometri", [
           {
@@ -44,31 +53,32 @@ const KOAH_SEMA = {
               { name: "fev1L", type: "text", label: "FEV1 (L)", placeholder: "ör. 1.4" },
               { name: "fev1p", type: "text", label: "FEV1 (%)", placeholder: "ör. 52" },
               { name: "fvcL", type: "text", label: "FVC (L)", placeholder: "ör. 2.8" },
-              { name: "fvcp", type: "text", label: "FVC (%)", placeholder: "ör: 78" },
+              { name: "fvcp", type: "text", label: "FVC (%)", placeholder: "ör. 78" },
               { name: "oran", type: "text", label: "FEV1/FVC", placeholder: "ör. 0.50" }
             ],
             build: (v) =>
-              `Son SFT/spirometri ${fmtDate(v.tarih)} tarihinde yapılmış: ` +
-              `FEV1 ${v.fev1L || "…"} L (%${v.fev1p || "…"}), FVC ${v.fvcL || "…"} L (%${v.fvcp || "…"}), ` +
-              `FEV1/FVC ${v.oran || "…"}.`
+              `En son ${fmtDate(v.tarih)} tarihinde yapılan solunum fonksiyon testinde ` +
+              `FEV1 ${koahLp(v.fev1L, v.fev1p)}, FVC ${koahLp(v.fvcL, v.fvcp)}, ` +
+              `FEV1/FVC ${v.oran || "…"} olarak ölçülmüş.`
           },
-          { key: "yok", label: "Yok", build: () => "Bilinen SFT/spirometri kaydı yok." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "SFT/spirometri sonucu bilinmiyor." }
+          { key: "yok", label: "Yok", build: () => "Daha önce yapılmış bir SFT/spirometri kaydı yokmuş." },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "Daha önce SFT/spirometri yapılıp yapılmadığı bilinmiyormuş." }
         ]),
         durumBlok("koah-gold", "GOLD evresi / grubu biliniyor mu?", [
           {
             key: "evet", label: "Evet",
             fields: [{ name: "v", type: "text", label: "GOLD evresi/grubu", placeholder: "ör. GOLD 3, Grup E" }],
-            build: (v) => `GOLD evresi/grubu ${v.v || "…"} olarak biliniyor.`
+            build: (v) => `Hastalığı ${v.v || "…"} olarak evrelenmiş.`
           },
-          { key: "hayir", label: "Hayır", build: () => "GOLD evresi/grubu bilinmiyor." }
+          { key: "hayir", label: "Hayır", build: () => "GOLD evresi/grubu bilinmiyormuş." }
         ]),
-        secimBlok(
-          "koah-fenotip", "Bilinen fenotip",
+        secimBlok("koah-fenotip", "Bilinen fenotip",
           ["Amfizem ağırlıklı", "Kronik bronşit ağırlıklı", "Sık alevlenen",
             "Astım-KOAH overlap", "Bronşektazi eşlik ediyor", "Bilinmiyor", "Diğer"],
-          (v) => `Bilinen fenotip: ${v}.`, "Fenotip"
-        )
+          (v) => v === "Bilinmiyor"
+            ? "KOAH fenotipi daha önce belirtilmemiş."
+            : `Hastalığı ${v.toLocaleLowerCase("tr")} fenotipinde değerlendirilmiş.`,
+          "Fenotip")
       ]
     },
 
@@ -78,149 +88,195 @@ const KOAH_SEMA = {
       title: "Bazal Fonksiyonel Durum",
       blocks: [
         secimBlok("koah-bazal-dispne", "Bazal nefes darlığı düzeyi",
-          ["yalnız ağır eforla", "hızlı yürürken/yokuşta", "düz yolda yaşıtlarından yavaş",
-            "100 metre yürüyünce duruyor", "evden çıkamayacak düzeyde"],
-          (v) => `Bazal dönemde nefes darlığı ${v} düzeyinde.`, "Düzey"),
+          ["yalnızca ağır eforla nefes darlığı oluyormuş",
+            "hızlı yürürken veya yokuşta nefes darlığı oluyormuş",
+            "düz yolda yaşıtlarından daha yavaş yürüyormuş",
+            "yaklaşık 100 metre yürüyünce nefes darlığı nedeniyle duruyormuş",
+            "nefes darlığı nedeniyle evden çıkamayacak düzeydeymiş"],
+          (v) => `Bazal dönemde ${v}.`, "Düzey"),
         secimBlok("koah-mmrc", "mMRC skoru", ["0", "1", "2", "3", "4"],
-          (v) => `mMRC dispne skoru ${v}.`, "mMRC"),
+          (v) => `mMRC dispne skoru ${v} olarak değerlendirilmiş.`, "mMRC"),
         metinBlok("koah-yuruyus", "Bazal yürüyüş mesafesi", "Mesafe (metre)", "ör. 300",
-          (v) => `Bazal yürüyüş mesafesi yaklaşık ${v} metre.`),
+          (v) => `Bazal yürüyüş mesafesi yaklaşık ${v} metreymiş.`),
         secimBlok("koah-ev-mobil", "Ev içi mobilizasyon", ["bağımsız", "yardımla", "bağımlı"],
-          (v) => `Ev içi mobilizasyonu ${v}.`, "Durum"),
+          (v) => `Ev içinde ${v} mobilize oluyormuş.`, "Durum"),
         secimBlok("koah-gya", "Günlük yaşam aktiviteleri", ["bağımsız", "kısmen bağımlı", "bağımlı"],
-          (v) => `Günlük yaşam aktivitelerinde ${v}.`, "Durum"),
+          (v) => `Günlük yaşam aktivitelerinde ${v} durumdaymış.`, "Durum"),
         varYok("koah-bazal-azalma", "Son dönemde bazal kapasiteye göre azalma var mı?",
-          "Son dönemde bazal kapasiteye göre azalma mevcut.",
-          "Son dönemde bazal kapasiteye göre azalma yok.")
+          "Son dönemde bazal egzersiz kapasitesinde belirgin azalma olmuş.",
+          "Son dönemde bazal kapasitesinde belirgin değişiklik olmamış.")
       ]
     },
 
-    /* ---- 3. Mevcut Semptomlar — Dispne ---- */
+    /* ---- 3. Mevcut Semptomlar — Dispne, Öksürük, Balgam ---- */
     {
-      id: "koah-dispne",
-      title: "Mevcut Semptomlar — Dispne",
+      id: "koah-semptom",
+      title: "Mevcut Semptomlar",
       blocks: [
-        checklistVarYok("koah-dispne-cluster", "Dispne özellikleri", [
-          "dispne", "dispnede bazale göre artış", "istirahatte dispne", "eforla dispne",
-          "konuşurken dispne", "yatarken dispnede artış", "gece nefes darlığıyla uyanma"
-        ])
+        {
+          id: "koah-dispne",
+          label: "Nefes darlığı (dispne)",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                {
+                  name: "nitelik", type: "multi", label: "Özellikleri (işaretleyin)",
+                  options: ["bazale göre artmış", "istirahatte de mevcut", "eforla belirgin",
+                    "konuşurken belirginleşiyor", "yatınca artıyor", "gece nefes darlığıyla uyandırıyor"]
+                }
+              ],
+              build: (v) => {
+                const n = v.nitelik || [];
+                return "Nefes darlığı mevcut" + (n.length ? `; ${joinVe(n)}.` : ".");
+              }
+            },
+            { key: "no", label: "Yok", build: () => "Nefes darlığı yokmuş." },
+            SKIP
+          ]
+        },
+        {
+          id: "koah-oksuruk",
+          label: "Öksürük",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "karakter", type: "select", label: "Karakter", options: ["balgamlı", "kuru"] },
+                {
+                  name: "nitelik", type: "multi", label: "Özellikleri (işaretleyin)",
+                  options: ["bazale göre artmış", "gece artıyor", "sabaha karşı belirginleşiyor",
+                    "egzersizle artıyor", "soğuk havayla artıyor"]
+                }
+              ],
+              build: (v) => {
+                const n = v.nitelik || [];
+                return `Öksürük mevcut, ${v.karakter || "…"} karakterde` +
+                  (n.length ? `; ${joinVe(n)}.` : ".");
+              }
+            },
+            { key: "no", label: "Yok", build: () => "Öksürük yokmuş." },
+            SKIP
+          ]
+        },
+        {
+          id: "koah-balgam",
+          label: "Balgam",
+          default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "miktar", type: "select", label: "Miktar", options: ["az", "orta", "fazla"] },
+                { name: "renk", type: "select", label: "Renk", options: ["beyaz", "sarı", "yeşil", "kahverengi", "kanlı"] },
+                {
+                  name: "ozellik", type: "multi", label: "Ek özellikler (işaretleyin)",
+                  options: ["bazale göre miktarı artmış", "pürülan", "kötü kokulu"]
+                }
+              ],
+              build: (v) => {
+                const o = v.ozellik || [];
+                return `Balgam mevcut; ${v.miktar || "…"} miktarda ve ${v.renk || "…"} renkte` +
+                  (o.length ? ` (${joinVe(o)})` : "") + ".";
+              }
+            },
+            { key: "no", label: "Yok", build: () => "Balgam yokmuş." },
+            SKIP
+          ]
+        },
+        varYok("koah-hemoptizi", "Hemoptizi var mı?",
+          "Hemoptizi tarifliyormuş.", "Hemoptizi yokmuş.")
       ]
     },
 
-    /* ---- 4. Öksürük ve Balgam ---- */
-    {
-      id: "koah-oksuruk-balgam",
-      title: "Mevcut Semptomlar — Öksürük ve Balgam",
-      blocks: [
-        checklistVarYok("koah-oksuruk-cluster", "Öksürük özellikleri", [
-          "öksürük", "öksürükte bazale göre artış", "gece öksürük artışı", "sabah öksürük belirginliği"
-        ]),
-        secimBlok("koah-oksuruk-karakter", "Öksürük karakteri", ["kuru", "balgamlı"],
-          (v) => `Öksürük ${v} karakterde.`, "Karakter"),
-        durumBlok("koah-balgam", "Balgam", [
-          {
-            key: "var", label: "Var",
-            fields: [
-              { name: "miktar", type: "select", label: "Miktar", options: ["az", "orta", "fazla"] },
-              { name: "renk", type: "select", label: "Renk", options: ["beyaz", "sarı", "yeşil", "kahverengi", "kanlı"] }
-            ],
-            build: (v) => `Balgam mevcut; ${v.miktar || "…"} miktarda ve ${v.renk || "…"} renkte.`
-          },
-          { key: "yok", label: "Yok", build: () => "Balgam yok." }
-        ]),
-        checklistVarYok("koah-balgam-ozellik", "Balgam ek özellikleri", [
-          "balgamda bazale göre miktar artışı", "pürülan balgam", "kötü kokulu balgam", "hemoptizi"
-        ])
-      ]
-    },
-
-    /* ---- 5. Enfeksiyon ve Hiperkapni/Hipoksemi ---- */
+    /* ---- 4. Enfeksiyon ve Hiperkapni/Hipoksemi ---- */
     {
       id: "koah-enfeksiyon",
       title: "Enfeksiyon ve Hiperkapni/Hipoksemi Bulguları",
       blocks: [
         varYokDetay("koah-ates", "Ateş var mı?",
           [{ name: "derece", type: "text", label: "En yüksek (°C)", placeholder: "ör. 38.4" }],
-          (v) => `Ateş mevcut (en yüksek ${v.derece || "…"} °C).`, "Ateş yok."),
-        checklistVarYok("koah-enf-cluster", "Eşlik eden enfeksiyon bulguları", [
-          "üşüme-titreme", "boğaz ağrısı/burun akıntısı", "yakın çevrede enfeksiyon öyküsü"
-        ]),
+          (v) => `Ateşi olmuş (en yüksek ${v.derece || "…"} °C ölçülmüş).`, "Ateşi olmamış."),
+        checklistVarYok("koah-enf-cluster", "Eşlik eden enfeksiyon bulguları",
+          ["üşüme-titreme", "boğaz ağrısı", "burun akıntısı/tıkanıklığı", "yakın çevrede enfeksiyon öyküsü"]),
         varYokDetay("koah-antibiyotik", "Son günlerde antibiyotik kullanımı var mı?",
-          [{ name: "ilac", type: "text", label: "Antibiyotik", placeholder: "ör. amoksisilin-klavulanat" }],
-          (v) => `Son günlerde antibiyotik kullanımı olmuş (${v.ilac || "…"}).`,
-          "Son günlerde antibiyotik kullanımı yok."),
-        varYokDetay("koah-steroid-akut", "Son günlerde steroid kullanımı var mı?",
+          [{ name: "ilac", type: "text", label: "Antibiyotik", placeholder: "ör. amoksisilin-klavulanat 2x1000 mg, 5 gün" }],
+          (v) => `Son günlerde antibiyotik kullanmış (${v.ilac || "…"}).`,
+          "Son günlerde antibiyotik kullanmamış."),
+        varYokDetay("koah-steroid-akut", "Son günlerde sistemik steroid kullanımı var mı?",
           [{ name: "ilac", type: "text", label: "Steroid", placeholder: "ör. 5 gün metilprednizolon" }],
-          (v) => `Son günlerde sistemik steroid kullanımı olmuş (${v.ilac || "…"}).`,
-          "Son günlerde steroid kullanımı yok."),
-        checklistVarYok("koah-hiperkapni", "Hiperkapni / hipoksemi bulguları", [
-          "uykuya meyil", "bilinç bulanıklığı", "sabah baş ağrısı", "siyanoz",
-          "konfüzyon", "oksijen satürasyonunda düşüklük"
-        ])
+          (v) => `Son günlerde sistemik steroid kullanmış (${v.ilac || "…"}).`,
+          "Son günlerde sistemik steroid kullanmamış."),
+        checklistVarYok("koah-hiperkapni", "Hiperkapni / hipoksemi bulguları",
+          ["uykuya meyil", "bilinç bulanıklığı", "sabah baş ağrısı", "siyanoz",
+            "konfüzyon", "oksijen satürasyonunda düşüklük"])
       ]
     },
 
-    /* ---- 6. Alevlenme Değerlendirmesi ---- */
+    /* ---- 5. Alevlenme Değerlendirmesi ---- */
     {
       id: "koah-alevlenme-deg",
       title: "Alevlenme Değerlendirmesi",
       blocks: [
         durumBlok("koah-uyum", "Mevcut tablo KOAH alevlenmesi ile uyumlu mu?", [
-          { key: "evet", label: "Evet", build: () => "Mevcut tablo KOAH alevlenmesi ile uyumlu." },
-          { key: "hayir", label: "Hayır", build: () => "Mevcut tablo KOAH alevlenmesi ile uyumlu değil." },
-          { key: "supheli", label: "Şüpheli", build: () => "Mevcut tablo KOAH alevlenmesi açısından şüpheli." }
+          { key: "evet", label: "Evet", build: () => "Mevcut tablo KOAH alevlenmesi ile uyumlu olarak değerlendirilmiş." },
+          { key: "hayir", label: "Hayır", build: () => "Mevcut tablo KOAH alevlenmesi ile uyumlu bulunmamış." },
+          { key: "supheli", label: "Şüpheli", build: () => "Mevcut tablo KOAH alevlenmesi açısından şüpheli bulunmuş." }
         ]),
-        checklistVarYok("koah-anthonisen", "Alevlenme (Anthonisen) kriterleri", [
-          "nefes darlığında artış", "balgam miktarında artış", "balgam pürülansında artış"
-        ]),
+        checklistVarYok("koah-anthonisen", "Alevlenme (Anthonisen) kriterleri",
+          ["nefes darlığında artış", "balgam miktarında artış", "balgam pürülansında artış"]),
         secimBlok("koah-alevlenme-siddet", "Alevlenme şiddeti",
           ["hafif", "orta", "ağır", "yaşamı tehdit edici"],
-          (v) => `Alevlenme şiddeti ${v} olarak değerlendirilmiş.`, "Şiddet"),
-        checklistVarYok("koah-agir-bulgu", "Ağır alevlenme lehine bulgular", [
-          "istirahatte dispne", "yeni siyanoz", "bilinç değişikliği", "oksijen ihtiyacında artış",
-          "tedaviye yanıtsızlık", "eşlik eden pnömoni/kalp yetmezliği/aritmi şüphesi"
-        ]),
+          (v) => `Alevlenme ${v} şiddette değerlendirilmiş.`, "Şiddet"),
+        checklistVarYok("koah-agir-bulgu", "Ağır alevlenme lehine bulgular",
+          ["istirahatte dispne", "yeni siyanoz", "bilinç değişikliği", "oksijen ihtiyacında artış",
+            "tedaviye yanıtsızlık", "eşlik eden pnömoni/kalp yetmezliği/aritmi şüphesi"]),
         durumBlok("koah-hiperkapni-asidoz", "Hiperkapni / asidoz", [
-          { key: "var", label: "Var", build: () => "Hiperkapni/asidoz mevcut." },
-          { key: "yok", label: "Yok", build: () => "Hiperkapni/asidoz yok." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "Hiperkapni/asidoz durumu bilinmiyor." }
+          { key: "var", label: "Var", build: () => "Hiperkapni/asidoz mevcutmuş." },
+          { key: "yok", label: "Yok", build: () => "Hiperkapni/asidoz saptanmamış." },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "Hiperkapni/asidoz durumu bilinmiyormuş." }
         ]),
         secimBlok("koah-tetikleyici", "Olası tetikleyici",
           ["viral enfeksiyon", "bakteriyel enfeksiyon", "pnömoni", "sigara", "hava kirliliği",
             "ilaç uyumsuzluğu", "kalp yetmezliği", "pulmoner emboli", "bilinmiyor", "Diğer"],
-          (v) => `Olası tetikleyici: ${v}.`, "Tetikleyici")
+          (v) => v === "bilinmiyor"
+            ? "Alevlenmeyi tetikleyen faktör belirlenememiş."
+            : `Alevlenmenin olası tetikleyicisi ${v} olarak düşünülmüş.`,
+          "Tetikleyici")
       ]
     },
 
-    /* ---- 7. Son 1 Yıl Alevlenme ve Yatış ---- */
+    /* ---- 6. Son 1 Yıl Alevlenme ve Yatış ---- */
     {
       id: "koah-son1yil",
       title: "Son 1 Yıl Alevlenme ve Yatış Öyküsü",
       blocks: [
         metinBlok("koah-alevlenme-sayi", "Son 1 yılda KOAH alevlenme sayısı", "Sayı", "ör. 3",
-          (v) => `Son bir yılda ${v} kez KOAH alevlenmesi olmuş.`),
+          (v) => `Son bir yılda toplam ${v} kez KOAH alevlenmesi geçirmiş.`),
         varYokDetay("koah-ab-alevlenme", "Antibiyotik gerektiren alevlenme oldu mu?",
           [{ name: "kez", type: "text", label: "Kaç kez", placeholder: "ör. 2" }],
-          (v) => `Antibiyotik gerektiren alevlenme ${v.kez || "…"} kez olmuş.`,
-          "Antibiyotik gerektiren alevlenme olmamış."),
+          (v) => `Bunların ${v.kez || "…"} tanesi antibiyotik gerektirmiş.`,
+          "Antibiyotik gerektiren alevlenmesi olmamış."),
         varYokDetay("koah-steroid-alevlenme", "Sistemik steroid gerektiren alevlenme oldu mu?",
           [{ name: "kez", type: "text", label: "Kaç kez", placeholder: "ör. 1" }],
-          (v) => `Sistemik steroid gerektiren alevlenme ${v.kez || "…"} kez olmuş.`,
-          "Sistemik steroid gerektiren alevlenme olmamış."),
-        varYokDetay("koah-acil", "Acil başvurusu oldu mu?",
+          (v) => `${v.kez || "…"} alevlenmesi sistemik steroid gerektirmiş.`,
+          "Sistemik steroid gerektiren alevlenmesi olmamış."),
+        varYokDetay("koah-acil", "Acil servis başvurusu oldu mu?",
           [{ name: "kez", type: "text", label: "Kaç kez", placeholder: "ör. 2" }],
-          (v) => `KOAH nedeniyle ${v.kez || "…"} kez acil servis başvurusu olmuş.`,
-          "KOAH nedeniyle acil başvurusu olmamış."),
+          (v) => `KOAH nedeniyle ${v.kez || "…"} kez acil servise başvurmuş.`,
+          "KOAH nedeniyle acil servise başvurusu olmamış."),
         varYokDetay("koah-servis", "Servis yatışı oldu mu?",
           [{ name: "kez", type: "text", label: "Kaç kez", placeholder: "ör. 1" }],
-          (v) => `Servis yatışı ${v.kez || "…"} kez olmuş.`, "Servis yatışı olmamış."),
+          (v) => `${v.kez || "…"} kez servise yatırılmış.`, "Servis yatışı olmamış."),
         varYokDetay("koah-ybu", "Yoğun bakım yatışı oldu mu?",
           [{ name: "kez", type: "text", label: "Kaç kez", placeholder: "ör. 1" }],
-          (v) => `Yoğun bakım yatışı ${v.kez || "…"} kez olmuş.`, "Yoğun bakım yatışı olmamış."),
-        varYok("koah-nimv", "NIMV/BiPAP ihtiyacı oldu mu?",
-          "Alevlenme sırasında NIMV/BiPAP ihtiyacı olmuş.", "NIMV/BiPAP ihtiyacı olmamış."),
+          (v) => `${v.kez || "…"} kez yoğun bakıma yatırılmış.`, "Yoğun bakım yatışı olmamış."),
+        varYok("koah-nimv", "Alevlenmede NIMV/BiPAP ihtiyacı oldu mu?",
+          "Alevlenme sırasında en az bir kez NIMV/BiPAP ihtiyacı olmuş.", "Alevlenmede NIMV/BiPAP ihtiyacı olmamış."),
         varYok("koah-entubasyon", "Entübasyon öyküsü var mı?",
-          "Entübasyon öyküsü mevcut.", "Entübasyon öyküsü yok."),
+          "Daha önce entübe edilmiş.", "Entübasyon öyküsü yokmuş."),
         {
           id: "koah-son-yatis", label: "Son hastane yatışı (tarih ve neden)", default: "skip",
           modes: [
@@ -228,7 +284,7 @@ const KOAH_SEMA = {
               key: "fill", label: "Doldur",
               fields: [
                 { name: "tarih", type: "text", label: "Tarih", placeholder: "ör. Şubat 2025" },
-                { name: "neden", type: "text", label: "Neden", placeholder: "ör. ağır alevlenme + pnömoni" }
+                { name: "neden", type: "text", label: "Neden", placeholder: "ör. ağır alevlenme ve pnömoni" }
               ],
               build: (v) => `Son hastane yatışı ${v.tarih || "…"} tarihinde, ${v.neden || "…"} nedeniyle olmuş.`
             },
@@ -236,47 +292,47 @@ const KOAH_SEMA = {
           ]
         },
         secimBlok("koah-taburculuk", "Son taburculuk sonrası durumu",
-          ["iyi", "kısmi düzelme", "düzelmemiş", "bilinmiyor"],
-          (v) => `Son taburculuk sonrası durumu ${v} olarak ifade edilmiş.`, "Durum")
+          ["tam düzelme sağlanmış", "kısmi düzelme olmuş", "düzelme sağlanamamış", "durumu bilinmiyor"],
+          (v) => `Son taburculuk sonrasında ${v}.`, "Durum")
       ]
     },
 
-    /* ---- 8. Evde KOAH Tedavisi ---- */
+    /* ---- 7. Evde KOAH Tedavisi ---- */
     {
       id: "koah-tedavi",
       title: "Evde Kullandığı KOAH Tedavisi",
       blocks: [
-        varYok("koah-inhaler", "Düzenli inhaler tedavisi var mı?",
-          "Düzenli inhaler tedavisi kullanıyormuş.", "Düzenli inhaler tedavisi kullanmıyormuş."),
-        metinBlok("koah-ilaclar", "Kullandığı ilaçlar", "İlaçlar",
-          "ör. tiotropium 1x1, formoterol/budesonid 2x1", (v) => `Kullandığı ilaçlar: ${v}.`),
+        varYokDetay("koah-inhaler", "Düzenli inhaler tedavisi var mı?",
+          [{ name: "ilac", type: "text", label: "Kullandığı inhaler(ler) ve doz", placeholder: "ör. Trelegy 1x1" }],
+          (v) => `Düzenli inhaler tedavisi olarak ${v.ilac || "…"} kullanıyormuş.`,
+          "Düzenli inhaler tedavisi kullanmıyormuş."),
         secimBlok("koah-tedavi-tip", "Tedavi tipi",
-          ["LAMA", "LABA", "ICS", "LABA-LAMA", "ICS-LABA", "Üçlü tedavi", "SABA", "SAMA", "Nebül", "Diğer"],
-          (v) => `Tedavi tipi: ${v}.`, "Tip"),
+          ["LAMA", "LABA", "ICS", "LABA-LAMA", "ICS-LABA", "üçlü tedavi", "SABA", "SAMA", "nebül", "Diğer"],
+          (v) => `Tedavisi ${v} grubunda değerlendirilmiş.`, "Tip"),
         varYokDetay("koah-saba", "Kısa etkili rahatlatıcı inhaler kullanımı var mı?",
           [{ name: "siklik", type: "text", label: "Kullanım sıklığı", placeholder: "ör. günde 3-4 kez" }],
-          (v) => `Kısa etkili rahatlatıcı inhaler kullanıyormuş (${v.siklik || "…"}).`,
+          (v) => `Kısa etkili rahatlatıcı inhalerini ${v.siklik || "…"} kullanıyormuş.`,
           "Kısa etkili rahatlatıcı inhaler kullanmıyormuş."),
         checklistCustom("koah-ek-tedavi", "Ek tedaviler",
           ["nebül", "teofilin", "roflumilast", "mukolitik", "profilaktik azitromisin", "kronik sistemik steroid"],
           "kullanıyor", "kullanmıyor"),
         secimBlok("koah-ilac-uyum", "İlaç uyumu", ["iyi", "orta", "kötü"],
-          (v) => `İlaç uyumu ${v}.`, "Uyum"),
+          (v) => `İlaç uyumu ${v} düzeydeymiş.`, "Uyum"),
         secimBlok("koah-aksatma", "İlaçlarını aksatma nedeni",
-          ["unutma", "cihaz kullanamama", "yan etki", "fayda görmeme", "maddi neden", "Diğer"],
-          (v) => `İlaç aksatma nedeni: ${v}.`, "Neden"),
+          ["unutma", "cihazı kullanamama", "yan etki", "fayda görmeme", "maddi neden", "Diğer"],
+          (v) => `İlaçlarını ${v} nedeniyle aksatıyormuş.`, "Neden"),
         durumBlok("koah-teknik-deg", "İnhaler tekniği değerlendirildi mi?", [
           { key: "evet", label: "Evet", build: () => "İnhaler tekniği değerlendirilmiş." },
           { key: "hayir", label: "Hayır", build: () => "İnhaler tekniği değerlendirilmemiş." }
         ]),
         secimBlok("koah-teknik", "İnhaler tekniği", ["uygun", "kısmen hatalı", "hatalı"],
-          (v) => `İnhaler tekniği ${v}.`, "Teknik"),
+          (v) => `İnhaler tekniği ${v} bulunmuş.`, "Teknik"),
         varYok("koah-spacer", "Spacer kullanımı var mı?",
-          "Spacer kullanıyormuş.", "Spacer kullanmıyormuş.")
+          "Spacer (hazne) kullanıyormuş.", "Spacer kullanmıyormuş.")
       ]
     },
 
-    /* ---- 9. Evde Oksijen ve Cihaz ---- */
+    /* ---- 8. Evde Oksijen ve Cihaz ---- */
     {
       id: "koah-oksijen-cihaz",
       title: "Evde Oksijen ve Cihaz Kullanımı",
@@ -288,7 +344,7 @@ const KOAH_SEMA = {
             { name: "sekil", type: "select", label: "Kullanım şekli", options: ["sürekli", "gece", "eforla", "gerektikçe"] },
             { name: "uyum", type: "select", label: "Uyum", options: ["iyi", "orta", "kötü"] }
           ],
-          (v) => `Evde oksijen kullanıyormuş (${v.sure || "…"} saat/gün, ${v.akim || "…"} L/dk, ${v.sekil || "…"}; uyum ${v.uyum || "…"}).`,
+          (v) => `Evde günde ${v.sure || "…"} saat, ${v.akim || "…"} L/dk akımla ${v.sekil || "…"} oksijen kullanıyormuş; uyumu ${v.uyum || "…"}ymiş.`,
           "Evde oksijen kullanmıyormuş."),
         varYokDetay("koah-nimv-ev", "Evde NIMV/BiPAP kullanımı var mı?",
           [
@@ -296,16 +352,16 @@ const KOAH_SEMA = {
             { name: "sure", type: "text", label: "Süre (saat/gece)", placeholder: "ör. 6" },
             { name: "uyum", type: "select", label: "Uyum", options: ["iyi", "orta", "kötü"] }
           ],
-          (v) => `Evde NIMV/BiPAP kullanıyormuş (endikasyon: ${v.endikasyon || "…"}, ${v.sure || "…"} saat/gece; uyum ${v.uyum || "…"}).`,
+          (v) => `Evde ${v.endikasyon || "…"} nedeniyle gecede ${v.sure || "…"} saat NIMV/BiPAP kullanıyormuş; uyumu ${v.uyum || "…"}ymiş.`,
           "Evde NIMV/BiPAP kullanmıyormuş."),
         varYok("koah-cpap", "Evde CPAP kullanımı var mı?",
           "Evde CPAP kullanıyormuş.", "Evde CPAP kullanmıyormuş."),
         varYok("koah-nebul-cihaz", "Evde nebül cihazı var mı?",
-          "Evde nebül cihazı mevcut.", "Evde nebül cihazı yok.")
+          "Evinde nebül cihazı mevcutmuş.", "Evinde nebül cihazı yokmuş.")
       ]
     },
 
-    /* ---- 10. Sigara ve Maruziyet ---- */
+    /* ---- 9. Sigara ve Maruziyet ---- */
     {
       id: "koah-sigara",
       title: "Sigara ve Maruziyet Öyküsü",
@@ -320,8 +376,8 @@ const KOAH_SEMA = {
               { name: "paketyil", type: "text", label: "Toplam (paket-yıl)", placeholder: "ör. 30" }
             ],
             build: (v) =>
-              `Aktif sigara içiyormuş (${v.yas || "…"} yaşında başlamış, günde ${v.paket || "…"} paket, ` +
-              `${v.sure || "…"} yıl; toplam ${v.paketyil || "…"} paket-yıl).`
+              `Halen aktif sigara içicisiymiş; ${v.yas || "…"} yaşında başlamış, günde ${v.paket || "…"} paket içiyormuş, ` +
+              `toplam ${v.paketyil || "…"} paket-yıl (yaklaşık ${v.sure || "…"} yıl) öyküsü mevcutmuş.`
           },
           {
             key: "birakmis", label: "Bırakmış",
@@ -329,25 +385,24 @@ const KOAH_SEMA = {
               { name: "paketyil", type: "text", label: "Toplam (paket-yıl)", placeholder: "ör. 25" },
               { name: "birakma", type: "text", label: "Bırakma tarihi", placeholder: "ör. 2020" }
             ],
-            build: (v) => `Sigarayı bırakmış (toplam ${v.paketyil || "…"} paket-yıl; bırakma: ${v.birakma || "…"}).`
+            build: (v) => `Sigarayı ${v.birakma || "…"} yılında bırakmış; toplam ${v.paketyil || "…"} paket-yıl öyküsü mevcutmuş.`
           },
-          { key: "hic", label: "Hiç içmemiş", build: () => "Sigara içmemiş." }
+          { key: "hic", label: "Hiç içmemiş", build: () => "Hiç sigara içmemiş." }
         ]),
         varYok("koah-pasif", "Pasif sigara maruziyeti var mı?",
-          "Pasif sigara maruziyeti mevcut.", "Pasif sigara maruziyeti yok."),
+          "Pasif sigara maruziyeti mevcutmuş.", "Pasif sigara maruziyeti yokmuş."),
         varYokDetay("koah-nargile", "Nargile/puro/pipo/e-sigara kullanımı var mı?",
           [{ name: "detay", type: "text", label: "Detay", placeholder: "ör. haftada birkaç kez nargile" }],
-          (v) => `Nargile/puro/pipo/e-sigara kullanımı mevcut (${v.detay || "…"}).`,
-          "Nargile/puro/pipo/e-sigara kullanımı yok."),
+          (v) => `Nargile/puro/pipo/e-sigara kullanımı mevcutmuş (${v.detay || "…"}).`,
+          "Nargile/puro/pipo/e-sigara kullanımı yokmuş."),
         metinBlok("koah-meslek", "Meslek", "Meslek", "ör. maden işçisi (emekli)",
-          (v) => `Meslek: ${v}.`),
-        checklistVarYok("koah-cevresel", "Çevresel maruziyet", [
-          "toz/duman/kimyasal maruziyeti", "biyokütle/odun-kömür sobası/tandır maruziyeti", "hava kirliliği maruziyeti"
-        ])
+          (v) => `Mesleği ${v}imiş.`),
+        checklistVarYok("koah-cevresel", "Çevresel maruziyet",
+          ["toz/duman/kimyasal maruziyeti", "biyokütle/odun-kömür sobası/tandır maruziyeti", "hava kirliliği maruziyeti"])
       ]
     },
 
-    /* ---- 11. Aşı ve Koruyucu ---- */
+    /* ---- 10. Aşı ve Koruyucu ---- */
     {
       id: "koah-asi",
       title: "Aşı ve Koruyucu Öykü",
@@ -356,34 +411,59 @@ const KOAH_SEMA = {
           {
             key: "var", label: "Var",
             fields: [{ name: "tarih", type: "text", label: "Son aşı tarihi", placeholder: "ör. Ekim 2024" }],
-            build: (v) => `İnfluenza aşısı yapılmış (son: ${v.tarih || "…"}).`
+            build: (v) => `İnfluenza aşısı yaptırmış (son doz: ${v.tarih || "…"}).`
           },
-          { key: "yok", label: "Yok", build: () => "İnfluenza aşısı yapılmamış." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "İnfluenza aşı durumu bilinmiyor." }
+          { key: "yok", label: "Yok", build: () => "İnfluenza aşısı yaptırmamış." },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "İnfluenza aşı durumu bilinmiyormuş." }
         ]),
         durumBlok("koah-pnomokok", "Pnömokok aşısı", [
-          { key: "var", label: "Var", build: () => "Pnömokok aşısı yapılmış." },
-          { key: "yok", label: "Yok", build: () => "Pnömokok aşısı yapılmamış." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "Pnömokok aşı durumu bilinmiyor." }
+          {
+            key: "var", label: "Var",
+            fields: [
+              { name: "tip", type: "select", label: "Tip", options: ["KPA (konjuge)", "PPA (polisakkarit)", "her ikisi", "bilinmiyor"] },
+              { name: "tarih", type: "text", label: "Tarih", placeholder: "ör. 2023" }
+            ],
+            build: (v) => `Pnömokok aşısı yaptırmış (${v.tip || "…"}${v.tarih ? `, ${v.tarih}` : ""}).`
+          },
+          { key: "yok", label: "Yok", build: () => "Pnömokok aşısı yaptırmamış." },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "Pnömokok aşı durumu bilinmiyormuş." }
         ]),
         durumBlok("koah-covid", "COVID aşısı", [
-          { key: "tam", label: "Tam", build: () => "COVID aşısı tam." },
-          { key: "eksik", label: "Eksik", build: () => "COVID aşısı eksik." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "COVID aşı durumu bilinmiyor." }
+          {
+            key: "tam", label: "Tam",
+            fields: [
+              { name: "doz", type: "text", label: "Doz sayısı", placeholder: "ör. 3" },
+              { name: "tarih", type: "text", label: "Son doz tarihi", placeholder: "ör. Ocak 2023" }
+            ],
+            build: (v) => `COVID-19 aşı şeması tamamlanmış (${v.doz || "…"} doz${v.tarih ? `, son doz ${v.tarih}` : ""}).`
+          },
+          {
+            key: "eksik", label: "Eksik",
+            fields: [
+              { name: "doz", type: "text", label: "Yapılan doz sayısı", placeholder: "ör. 1" },
+              { name: "tarih", type: "text", label: "Son doz tarihi", placeholder: "ör. 2021" }
+            ],
+            build: (v) => `COVID-19 aşı şeması eksikmiş (${v.doz || "…"} doz yapılmış${v.tarih ? `, son doz ${v.tarih}` : ""}).`
+          },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "COVID-19 aşı durumu bilinmiyormuş." }
         ]),
         durumBlok("koah-rsv", "RSV aşısı", [
-          { key: "var", label: "Var", build: () => "RSV aşısı yapılmış." },
-          { key: "yok", label: "Yok", build: () => "RSV aşısı yapılmamış." },
-          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "RSV aşı durumu bilinmiyor." }
+          {
+            key: "var", label: "Var",
+            fields: [{ name: "tarih", type: "text", label: "Aşı tarihi", placeholder: "ör. Eylül 2025" }],
+            build: (v) => `RSV aşısı yaptırmış (${v.tarih || "…"}).`
+          },
+          { key: "yok", label: "Yok", build: () => "RSV aşısı yaptırmamış." },
+          { key: "bilinmiyor", label: "Bilinmiyor", build: () => "RSV aşı durumu bilinmiyormuş." }
         ]),
         varYok("koah-rehab", "Pulmoner rehabilitasyon öyküsü var mı?",
-          "Pulmoner rehabilitasyon öyküsü mevcut.", "Pulmoner rehabilitasyon öyküsü yok."),
+          "Daha önce pulmoner rehabilitasyon programına katılmış.", "Pulmoner rehabilitasyon öyküsü yokmuş."),
         varYok("koah-sigara-danisma", "Sigara bırakma danışmanlığı almış mı?",
           "Sigara bırakma danışmanlığı almış.", "Sigara bırakma danışmanlığı almamış.")
       ]
     },
 
-    /* ---- 12. Sosyal ve Fonksiyonel ---- */
+    /* ---- 11. Sosyal ve Fonksiyonel ---- */
     {
       id: "koah-sosyal",
       title: "Sosyal ve Fonksiyonel Durum",
@@ -391,16 +471,14 @@ const KOAH_SEMA = {
         secimBlok("koah-yasam", "Yaşam şekli", ["yalnız", "ailesiyle", "bakıcı desteğiyle"],
           (v) => `${buyukHarfBasla(v)} yaşıyormuş.`, "Yaşam şekli"),
         varYok("koah-bakim", "Evde bakım desteği var mı?",
-          "Evde bakım desteği mevcut.", "Evde bakım desteği yok."),
+          "Evde bakım desteği mevcutmuş.", "Evde bakım desteği yokmuş."),
         secimBlok("koah-ev-kosul", "Ev koşulları",
-          ["uygun", "merdivenli", "rutubetli", "ısınma problemi var"],
-          (v) => `Ev koşulları: ${v}.`, "Koşullar"),
-        secimBlok("koah-mobil", "Mobilizasyon", ["bağımsız", "yardımla", "bağımlı"],
-          (v) => `Mobilizasyonu ${v}.`, "Durum"),
+          ["uygun", "merdivenli", "rutubetli", "ısınma problemli"],
+          (v) => `Yaşadığı ev ${v} niteliktermiş.`, "Koşullar"),
         secimBlok("koah-beslenme", "Beslenme durumu", ["iyi", "azalmış", "oral alımı kötü"],
-          (v) => `Beslenme durumu ${v}.`, "Durum"),
+          (v) => `Beslenme durumu ${v} olarak değerlendirilmiş.`, "Durum"),
         varYok("koah-kilo", "Son dönemde kilo kaybı var mı?",
-          "Son dönemde kilo kaybı mevcut.", "Son dönemde kilo kaybı yok.")
+          "Son dönemde istemsiz kilo kaybı olmuş.", "Son dönemde belirgin kilo kaybı olmamış.")
       ]
     }
   ]
