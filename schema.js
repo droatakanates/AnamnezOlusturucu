@@ -50,8 +50,8 @@ function varYok(id, label, varText, yokText) {
   };
 }
 
-/* Çoklu seçim (checklist): işaretliler "mevcut", kalanlar "yok" */
-function checklistVarYok(id, label, items) {
+/* Çoklu seçim (checklist) — işaretliler/kalanlar özel fiille yazılır */
+function checklistCustom(id, label, items, varKelime, yokKelime) {
   return {
     id, label, default: "skip",
     modes: [
@@ -64,14 +64,68 @@ function checklistVarYok(id, label, items) {
           const sec = v.sec || [];
           const yok = items.filter((i) => !sec.includes(i));
           const parts = [];
-          if (sec.length) parts.push(`${joinVe(sec)} mevcut`);
-          if (yok.length) parts.push(`${joinVirgul(yok)} yok`);
+          if (sec.length) parts.push(`${joinVe(sec)} ${varKelime}`);
+          if (yok.length) parts.push(`${joinVirgul(yok)} ${yokKelime}`);
           return buyukHarfBasla(parts.join("; ")) + ".";
         }
       },
       SKIP
     ]
   };
+}
+
+/* Çoklu seçim: işaretliler "mevcut", kalanlar "yok" */
+function checklistVarYok(id, label, items) {
+  return checklistCustom(id, label, items, "mevcut", "yok");
+}
+
+/* Var → alan(lar) açılan, Yok → sabit cümle bloğu */
+function varYokDetay(id, label, fields, varBuild, yokText, varLabel, yokLabel) {
+  return {
+    id, label, default: "skip",
+    modes: [
+      { key: "yes", label: varLabel || "Var", fields, build: varBuild },
+      { key: "no", label: yokLabel || "Yok", build: () => yokText },
+      SKIP
+    ]
+  };
+}
+
+/* Tek serbest metin alanı olan blok */
+function metinBlok(id, label, fieldLabel, placeholder, buildFn) {
+  return {
+    id, label, default: "skip",
+    modes: [
+      {
+        key: "fill", label: "Doldur",
+        fields: [{ name: "v", type: "text", label: fieldLabel, placeholder }],
+        build: (vals) => buildFn(vals.v || "…")
+      },
+      SKIP
+    ]
+  };
+}
+
+/* Tek açılır menü (select) olan blok; "Diğer" seçilirse serbest metin kullanılır */
+function secimBlok(id, label, options, buildFn, fieldLabel) {
+  const hasDiger = options.includes("Diğer");
+  const fields = [{ name: "v", type: "select", label: fieldLabel || "Seçim", options }];
+  if (hasDiger) fields.push({ name: "diger", type: "text", label: "Diğer / açıklama", placeholder: "(yalnızca 'Diğer' seçiliyse)" });
+  return {
+    id, label, default: "skip",
+    modes: [
+      {
+        key: "fill", label: "Belirt", fields,
+        build: (vals) => buildFn(vals.v === "Diğer" && vals.diger ? vals.diger : (vals.v || "…"))
+      },
+      SKIP
+    ]
+  };
+}
+
+/* Çok durumlu blok: verilen modlara otomatik "Atla" eklenir */
+function durumBlok(id, label, modesArr) {
+  return { id, label, default: "skip", modes: [...modesArr, SKIP] };
 }
 
 /* Atla modu — her blokta ortak */
