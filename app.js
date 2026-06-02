@@ -8,7 +8,8 @@ const TEMPLATES = {
   "ulseratif-kolit": ULSERATIF_KOLIT_SEMA,
   "tip2-dm": TIP2_DM_SEMA,
   kky: KKY_SEMA,
-  koah: KOAH_SEMA
+  koah: KOAH_SEMA,
+  astim: ASTIM_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
