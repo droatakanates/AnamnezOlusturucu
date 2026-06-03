@@ -38,6 +38,17 @@ function fmtDate(iso) {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
 }
 
+/* Akıcı tanı cümlesi: "<zaman> <yer> <şikayet> şikayetiyle başvurusu üzerine
+   yapılan tetkikler sonucunda <hastalık> tanısı almış" (eksik alanlar atlanır).
+   Sondaki noktayı çağıran ekler. */
+function taniCumlesi(hastalik, v) {
+  let s = buyukHarfBasla(v.zaman || "…");
+  if (v.yer) s += ` ${v.yer}`;
+  if (v.sikayet) s += ` ${v.sikayet} şikayetiyle başvurusu üzerine yapılan tetkikler sonucunda`;
+  else if (v.yer) s += ` yapılan değerlendirme sonucunda`;
+  return s + ` ${hastalik} tanısı almış`;
+}
+
 /* Basit Var/Yok bloğu üreticisi (tekrarı azaltmak için) */
 function varYok(id, label, varText, yokText) {
   return {
@@ -157,10 +168,13 @@ const HIPERTANSIYON_SEMA = {
                     "aile hekimliği başvurusu",
                     "rutin kontrol"
                   ]
-                }
+                },
+                { name: "sikayet", type: "text", label: "Başvuru şikayeti (varsa)", placeholder: "ör. baş ağrısı" }
               ],
               build: (v) =>
-                `${v.sure || "…"} önce ${v.yer || "…"} sırasında tanı almış.`
+                `${v.sure || "…"} önce ${v.yer || "…"} sırasında` +
+                (v.sikayet ? ` ${v.sikayet} şikayetiyle yapılan değerlendirmede` : "") +
+                ` hipertansiyon tanısı almış.`
             },
             SKIP
           ]
@@ -517,16 +531,16 @@ const ULSERATIF_KOLIT_SEMA = {
         },
         {
           id: "uc-tani-yer",
-          label: "Tanının konulduğu yer biliniyor mu?",
+          label: "Tanının konulduğu yer",
           default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
               fields: [
-                { name: "hastane", type: "text", label: "Hastane", placeholder: "ör. … Üniversitesi" }
+                { name: "hastane", type: "text", label: "Hastane / merkez", placeholder: "ör. … Üniversitesi Hastanesi'ne" }
               ],
               build: (v) =>
-                `Hasta şikayetleriyle ${v.hastane || "…"} hastanesine başvurusunda tanı almış.`
+                `Şikayetleriyle ${v.hastane || "…"} başvurusunda yapılan tetkikler sonucunda ülseratif kolit tanısı almış.`
             },
             SKIP
           ]
@@ -924,25 +938,31 @@ const TIP2_DM_SEMA = {
       blocks: [
         {
           id: "dm-tani",
-          label: "Tanı zamanı ve başvuru şekli biliniyor mu?",
+          label: "Tanı zamanı ve başvuru şekli",
           default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
               fields: [
-                { name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2018" },
+                { name: "yil", type: "text", label: "Tanı zamanı", placeholder: "ör. 2018 yılında" },
                 {
                   name: "merkez", type: "select", label: "Başvuru / tanı şekli",
                   options: [
-                    "aile hekimliği",
-                    "dahiliye polikliniği",
-                    "acil servis",
+                    "aile hekimliği başvurusu",
+                    "dahiliye polikliniği başvurusu",
+                    "acil servis başvurusu",
                     "ev ölçümlerinin yüksek gelmesi"
                   ]
-                }
+                },
+                { name: "sikayet", type: "text", label: "Başvuru şikayeti (varsa)", placeholder: "ör. poliüri ve polidipsi" }
               ],
-              build: (v) =>
-                `Hasta ${v.yil || "…"} yılında ${v.merkez || "…"} başvurusu sonucu tanı almış.`
+              build: (v) => {
+                const zaman = buyukHarfBasla(v.yil || "…");
+                if (v.merkez === "ev ölçümlerinin yüksek gelmesi")
+                  return `${zaman} ev kan şekeri ölçümlerinin yüksek saptanması üzerine yapılan tetkiklerle Tip 2 DM tanısı almış.`;
+                const sik = v.sikayet ? ` ${v.sikayet} şikayetiyle` : "";
+                return `${zaman}${sik} ${v.merkez || "…"} sırasında yapılan tetkiklerle Tip 2 DM tanısı almış.`;
+              }
             },
             SKIP
           ]
@@ -1431,13 +1451,17 @@ const KKY_SEMA = {
       blocks: [
         {
           id: "kky-tani",
-          label: "Tanı yılı biliniyor mu?",
+          label: "Tanı zamanı, yeri ve başvuru şikayeti",
           default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
-              fields: [{ name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2020" }],
-              build: (v) => `${v.yil || "…"} yılında kalp yetmezliği tanısı almış.`
+              fields: [
+                { name: "zaman", type: "text", label: "Tanı zamanı", placeholder: "ör. 2020 yılında / 4 yıl önce" },
+                { name: "yer", type: "text", label: "Tanı yeri (varsa)", placeholder: "ör. kardiyoloji kliniğinde" },
+                { name: "sikayet", type: "text", label: "Başvuru şikayeti (varsa)", placeholder: "ör. nefes darlığı ve bacaklarda şişlik" }
+              ],
+              build: (v) => taniCumlesi("kalp yetmezliği", v) + "."
             },
             SKIP
           ]

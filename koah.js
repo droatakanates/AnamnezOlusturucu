@@ -23,18 +23,17 @@ const KOAH_SEMA = {
       blocks: [
         {
           id: "koah-tani-bilgi",
-          label: "KOAH tanısı: zaman ve yer",
+          label: "KOAH tanısı: zaman, yer ve başvuru şikayeti",
           default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
               fields: [
-                { name: "zaman", type: "text", label: "Tanı zamanı", placeholder: "ör. 2017 yılında / 6 yıl önce" },
-                { name: "yer", type: "text", label: "Tanı yeri", placeholder: "ör. göğüs hastalıkları polikliniğinde" }
+                { name: "zaman", type: "text", label: "Tanı zamanı", placeholder: "ör. 2016 yılında / 6 yıl önce" },
+                { name: "yer", type: "text", label: "Tanı yeri", placeholder: "ör. Sanatoryum EAH'ta / göğüs hastalıkları polikliniğinde" },
+                { name: "sikayet", type: "text", label: "Başvuru şikayeti", placeholder: "ör. nefes darlığı ve öksürük" }
               ],
-              build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")} KOAH tanısı almış.` +
-                (v.yer ? ` Tanısı ${v.yer} konulmuş.` : "")
+              build: (v) => taniCumlesi("KOAH", v) + "."
             },
             SKIP
           ]

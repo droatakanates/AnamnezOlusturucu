@@ -23,7 +23,7 @@ const ASTIM_SEMA = {
       blocks: [
         {
           id: "ast-tani-bilgi",
-          label: "Astım tanısı: zaman, yer, yaş",
+          label: "Astım tanısı: zaman, yer, başvuru şikayeti ve yaş",
           default: "skip",
           modes: [
             {
@@ -31,12 +31,11 @@ const ASTIM_SEMA = {
               fields: [
                 { name: "zaman", type: "text", label: "Tanı zamanı", placeholder: "ör. 2010 yılında / çocuklukta" },
                 { name: "yer", type: "text", label: "Tanı yeri", placeholder: "ör. göğüs hastalıkları polikliniğinde" },
+                { name: "sikayet", type: "text", label: "Başvuru şikayeti", placeholder: "ör. nefes darlığı ve hışıltı" },
                 { name: "yas", type: "text", label: "Tanı yaşı", placeholder: "ör. 12" }
               ],
               build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")} astım tanısı almış` +
-                (v.yas ? `; tanı yaşı ${v.yas}'miş` : "") + "." +
-                (v.yer ? ` Tanısı ${v.yer} konulmuş.` : "")
+                taniCumlesi("astım", v) + (v.yas ? ` (tanı yaşı ${v.yas})` : "") + "."
             },
             SKIP
           ]
