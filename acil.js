@@ -10,10 +10,7 @@
   const cap = buyukHarfBasla;
   const joinTr = joinVe;
 
-  const SEMPTOMLAR = [
-    "ateş", "kusma", "ishal", "dispne", "göğüs ağrısı",
-    "bilinç değişikliği", "kanama", "karın ağrısı", "halsizlik", "baş dönmesi"
-  ];
+  /* NOT: Şikayete özgü (ör. dispne) semptom sorgulaması ileride eklenecek. */
   const GENEL_DURUM = ["iyi", "orta", "kötü"];
   const BILINC = ["açık", "konfüze", "kapalı"];
   const CINSIYET = ["Kadın", "Erkek"];
@@ -39,7 +36,7 @@
   const s = {
     yas: "", cinsiyet: "", kronikTanilar: "", isteyenBirim: "", konsultasyonNedeni: "",
     kronikAnamnez: "",
-    basvuruSikayeti: "", sikayetSuresi: "", eslikEden: {},
+    basvuruSikayeti: "", sikayetSuresi: "",
     duzenliIlaclar: "", antikoagulan: false,
     ta: "", nabiz: "", ates: "", spo2: "", solunum: "",
     genelDurum: "", bilinc: "", fizikMuayene: "",
@@ -130,12 +127,6 @@
     const p2 = [];
     if (s.basvuruSikayeti) p2.push(`Hasta acil servise ${s.basvuruSikayeti} nedeniyle başvurmuş.`);
     if (s.sikayetSuresi) p2.push(`Şikâyetleri ${s.sikayetSuresi} önce başlamış.`);
-    const present = SEMPTOMLAR.filter((x) => s.eslikEden[x]);
-    const absent = SEMPTOMLAR.filter((x) => !s.eslikEden[x]);
-    let esl = "";
-    if (present.length) esl += `Eşlik eden ${joinTr(present)} mevcut`;
-    if (absent.length) esl += (present.length ? "; " : "Eşlik eden ") + `${joinTr(absent)} yok`;
-    if (esl) p2.push(esl + ".");
     if (p2.length) P.push(p2.join(" "));
 
     if (s.kronikAnamnez.trim())
@@ -256,21 +247,6 @@
       g.appendChild(cell);
     });
     return g;
-  }
-  function chips() {
-    const wrap = mk("div", "chips");
-    SEMPTOMLAR.forEach((sym) => {
-      const b = mk("button", "chip"); b.type = "button"; b.textContent = sym;
-      if (s.eslikEden[sym]) b.classList.add("on");
-      b.addEventListener("click", () => {
-        s.eslikEden[sym] = !s.eslikEden[sym];
-        b.classList.toggle("on", !!s.eslikEden[sym]);
-        b.textContent = (s.eslikEden[sym] ? "✓ " : "") + sym;
-        render();
-      });
-      wrap.appendChild(b);
-    });
-    return wrap;
   }
   function toggle(key, textFn) {
     const b = mk("button", "acil-toggle"); b.type = "button";
@@ -409,8 +385,6 @@
       field("Başvuru şikâyeti", textInput("basvuruSikayeti", "halsizlik")),
       field("Şikâyet süresi", textInput("sikayetSuresi", "3 gün"))
     ]));
-    c.body.appendChild(label("Eşlik eden semptomlar (işaretli = var)"));
-    c.body.appendChild(chips());
     root.appendChild(c.sec);
 
     c = card("4", "İlaçlar & vital bulgular");
