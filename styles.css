@@ -461,6 +461,23 @@ body {
 .sonuc-btn:hover { border-color: var(--primary); }
 .sonuc-btn.on { background: var(--primary-tint); border-color: var(--primary); color: var(--primary-700); font-weight: 600; }
 
+/* Skor paneli */
+.scores-body { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.score-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px 13px; background: var(--surface-2); }
+.score-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.score-name { font-weight: 700; font-size: 0.92rem; color: var(--ink); }
+.score-badge { font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--primary-tint); color: var(--primary-700); }
+.score-badge.na { background: #eef2f7; color: var(--muted); }
+.score-badge.hi { background: #fbe4dc; color: #b4401f; }
+.crit-list { display: flex; flex-direction: column; gap: 3px; }
+.crit { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--ink-soft); }
+.crit .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.crit .dot.met { background: #16a34a; }
+.crit .dot.no { background: #cbd5e1; }
+.crit .dot.na { background: transparent; border: 1px dashed #aab6c2; }
+.score-yorum { margin: 7px 0 0; font-size: 0.82rem; color: var(--primary-700); font-style: italic; }
+.score-disclaimer { margin: 4px 2px 0; font-size: 0.74rem; color: var(--muted); }
+
 /* Acil not önizleme */
 .acil-preview-pane { position: sticky; top: 140px; display: flex; flex-direction: column; gap: 12px; }
 .acil-note {
