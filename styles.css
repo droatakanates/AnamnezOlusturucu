@@ -32,6 +32,8 @@
 }
 
 * { box-sizing: border-box; }
+/* hidden özelliği, display:grid/flex gibi kuralları da ezerek gizlemeli */
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
