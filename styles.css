@@ -372,13 +372,115 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ===================== ACİL KONSÜLTASYON MODÜLÜ ===================== */
+/* Mod sekmeleri (navbar) */
+.mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: #eef2f7;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 4px;
+}
+.mode-tabs button {
+  border: none; background: transparent; color: var(--ink-soft);
+  font-family: inherit; font-size: 0.86rem; font-weight: 600;
+  padding: 8px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  transition: all 0.14s;
+}
+.mode-tabs button:hover { color: var(--ink); }
+.mode-tabs button.active { background: var(--primary); color: #fff; box-shadow: var(--shadow-sm); }
+@media (max-width: 720px) {
+  .nav-links { display: none; }
+  .mode-tabs button { padding: 7px 11px; font-size: 0.8rem; }
+}
+
+/* Acil yerleşim */
+.acil-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  gap: 24px; align-items: start; padding: 26px 0 90px;
+}
+.acil-form { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.acil-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.acil-row3 { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; }
+.acil-field { display: flex; flex-direction: column; gap: 5px; }
+@media (max-width: 1100px) { .acil-layout { grid-template-columns: minmax(0,1fr) minmax(340px,420px); } }
+@media (max-width: 860px) {
+  .acil-layout { grid-template-columns: 1fr; }
+  .acil-row2, .acil-row3 { grid-template-columns: 1fr; }
+  .acil-layout[data-mobile-view="form"] .acil-preview-pane { display: none; }
+  .acil-layout[data-mobile-view="preview"] .acil-form { display: none; }
+}
+
+/* Vital / lab ızgaraları */
+.acil-vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
+.acil-labs { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.vcell { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 4px 9px; background: #fff; }
+.vcell:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,148,136,0.16); }
+.vlab { font-size: 0.78rem; font-weight: 700; color: var(--primary-700); min-width: 30px; }
+.vinput { flex: 1; min-width: 0; border: none; background: transparent; font-size: 0.92rem; font-family: inherit; color: var(--ink); padding: 6px 0; }
+.vinput:focus { outline: none; }
+.vunit { font-size: 0.68rem; color: var(--muted); }
+
+/* Semptom çipleri (var = vurgulu) */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line-strong); background: #fff; color: var(--ink-soft);
+  font-family: inherit; font-size: 0.86rem; font-weight: 600;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: all 0.12s;
+}
+.chip:hover { border-color: #c2693f; }
+.chip.on { background: #fbede5; border-color: #c2693f; color: #a64c24; }
+
+/* Antikoagülan toggle */
+.acil-toggle {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+  border-radius: var(--radius-sm); padding: 10px 13px; cursor: pointer;
+  font-family: inherit; font-size: 0.88rem; color: var(--ink-soft); font-weight: 500;
+}
+.acil-toggle.on { border-color: #c2693f; background: #fbede5; color: #a64c24; }
+.acil-toggle .knob { width: 34px; height: 19px; border-radius: 999px; background: #cfd8dd; position: relative; flex: none; transition: background 0.15s; }
+.acil-toggle .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.acil-toggle.on .knob { background: #c2693f; }
+.acil-toggle.on .knob::after { transform: translateX(15px); }
+
+/* Liste satırları (problem / öneri) */
+.acil-list-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.lnum { width: 22px; height: 22px; flex: none; border-radius: 6px; background: var(--primary-tint); color: var(--primary-700); font-size: 0.76rem; font-weight: 700; display: grid; place-items: center; }
+.lbul { width: 20px; flex: none; text-align: center; color: var(--primary); font-weight: 700; }
+.ldel { border: none; background: transparent; color: var(--muted); font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 4px; }
+.ldel:hover { color: var(--danger); }
+.ladd { align-self: flex-start; border: 1px dashed var(--line-strong); background: transparent; color: var(--primary-700); font-size: 0.8rem; font-weight: 600; padding: 7px 13px; border-radius: var(--radius-sm); cursor: pointer; font-family: inherit; margin-top: 2px; }
+.ladd:hover { border-color: var(--primary); }
+
+/* Sonuç / disposition */
+.sonuc-list { display: flex; flex-direction: column; gap: 6px; }
+.sonuc-btn { text-align: left; border: 1px solid var(--line-strong); background: #fff; color: var(--ink-soft); font-family: inherit; font-size: 0.9rem; padding: 10px 13px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.12s; }
+.sonuc-btn:hover { border-color: var(--primary); }
+.sonuc-btn.on { background: var(--primary-tint); border-color: var(--primary); color: var(--primary-700); font-weight: 600; }
+
+/* Acil not önizleme */
+.acil-preview-pane { position: sticky; top: 140px; display: flex; flex-direction: column; gap: 12px; }
+.acil-note {
+  margin: 0; background: #0f2228; color: #e7f1f1;
+  border-radius: var(--radius); padding: 20px 22px;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.86rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+  max-height: calc(100vh - 230px); overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+@media (max-width: 860px) { .acil-preview-pane { position: static; } .acil-note { max-height: none; } }
+
 /* ---------- Yazdırma ---------- */
 @media print {
-  .navbar, .toolbar, .section-nav, .form-pane, .mobile-switch,
-  .app-footer, .paper-actions, .privacy-note, .word-count { display: none !important; }
+  .navbar, .toolbar, .section-nav, .form-pane, .mobile-switch, .mode-tabs,
+  .acil-form, .app-footer, .paper-actions, .privacy-note, .word-count { display: none !important; }
   body { background: #fff; }
-  .layout { display: block; padding: 0; }
-  .preview-pane { position: static; }
+  .layout, .acil-layout { display: block; padding: 0; }
+  .preview-pane, .acil-preview-pane { position: static; }
   .paper { border: none; box-shadow: none; max-height: none; padding: 0; }
   .paper::before { display: none; }
+  .acil-note { color: #000; background: #fff; border: none; box-shadow: none; max-height: none; padding: 0; font-family: inherit; }
 }

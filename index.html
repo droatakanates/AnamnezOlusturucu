@@ -27,6 +27,10 @@
           <span id="subtitle">Form bazlı klinik taslak</span>
         </div>
       </div>
+      <div class="mode-tabs" id="mode-tabs" role="tablist" aria-label="Mod seçimi">
+        <button type="button" data-mode="kronik" class="active">Kronik Anamnez</button>
+        <button type="button" data-mode="acil">Acil Konsültasyon</button>
+      </div>
       <nav class="nav-links" aria-label="Üst menü">
         <span class="nav-tag">test sürümü</span>
       </nav>
@@ -105,6 +109,26 @@
     </section>
   </main>
 
+  <!-- ANA İÇERİK — ACİL KONSÜLTASYON -->
+  <main class="wrap acil-layout" id="acil-view" data-mobile-view="form" hidden>
+    <section class="acil-form" id="acil-form"></section>
+    <section class="acil-preview-pane">
+      <div class="paper-head">
+        <div><h2>Konsültasyon Notu</h2><span id="acil-word-count" class="word-count">0 kelime</span></div>
+        <div class="paper-actions">
+          <button id="acil-print" class="btn btn-soft" type="button">Yazdır</button>
+          <button id="acil-copy" class="btn btn-primary" type="button">Kopyala</button>
+        </div>
+      </div>
+      <pre id="acil-note" class="acil-note">Soldaki alanları doldurdukça konsültasyon notu burada oluşur.</pre>
+      <p class="privacy-note">
+        🔒 Girdiğiniz bilgiler yalnızca bu cihazda işlenir; hiçbir sunucuya gönderilmez,
+        hiçbir yerde saklanmaz. Sayfa kapanınca silinir. Lütfen hasta adı, T.C. kimlik no
+        gibi kimlik bilgileri girmeyin. Üretilen metin yalnızca bir taslaktır.
+      </p>
+    </section>
+  </main>
+
   <!-- Mobil görünüm geçişi -->
   <div class="mobile-switch" role="tablist" aria-label="Görünüm">
     <button class="ms-btn active" data-view="form" type="button">Sorular</button>
@@ -121,5 +145,6 @@
   <script src="koah.js"></script>
   <script src="astim.js"></script>
   <script src="app.js"></script>
+  <script src="acil.js"></script>
 </body>
 </html>
