@@ -49,6 +49,15 @@ function taniCumlesi(hastalik, v) {
   return s + ` ${hastalik} tanısı almış`;
 }
 
+/* Semptom kodlama: her satır "Semptom: var/yok/sorgulanmalı".
+   Bilgi girilmemişse varsayılan "sorgulanmalı". Alt alta liste döndürür. */
+function buildSymptomCode(symptoms, state) {
+  const map = { var: "var", yok: "yok", sorgu: "sorgulanmalı" };
+  return symptoms
+    .map((s) => `${buyukHarfBasla(s.label)}: ${map[state[s.id]] || "sorgulanmalı"}`)
+    .join("\n");
+}
+
 /* Basit Var/Yok bloğu üreticisi (tekrarı azaltmak için) */
 function varYok(id, label, varText, yokText) {
   return {

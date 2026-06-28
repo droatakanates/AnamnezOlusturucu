@@ -270,6 +270,7 @@ body {
   padding: 8px 10px; border-radius: 10px;
 }
 .symptom-row:nth-child(odd) { background: var(--surface-2); }
+.symptom-row.code { grid-template-columns: 200px auto; }
 .symptom-name { font-size: 0.9rem; font-weight: 600; }
 .artan { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
 .artan input { accent-color: var(--primary); }

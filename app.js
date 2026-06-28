@@ -10,7 +10,8 @@ const TEMPLATES = {
   kky: KKY_SEMA,
   koah: KOAH_SEMA,
   astim: ASTIM_SEMA,
-  kbh: KBH_SEMA
+  kbh: KBH_SEMA,
+  hipotiroidi: HIPOTIROIDI_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
@@ -35,6 +36,9 @@ function initState() {
       if (b.type === "symptoms") {
         state[b.id] = {};
         b.symptoms.forEach((s) => (state[b.id][s.id] = { freq: "atla", artan: false }));
+      } else if (b.type === "symptom-code") {
+        state[b.id] = {};
+        b.symptoms.forEach((s) => (state[b.id][s.id] = "sorgu"));
       } else {
         state[b.id] = { mode: b.default || "skip", values: {} };
       }
@@ -63,7 +67,9 @@ function renderForm() {
     const body = document.createElement("div");
     body.className = "group-body";
     group.blocks.forEach((block) => {
-      const el = block.type === "symptoms" ? renderSymptomBlock(block) : renderBlock(block);
+      const el = block.type === "symptoms" ? renderSymptomBlock(block)
+        : block.type === "symptom-code" ? renderSymptomCodeBlock(block)
+        : renderBlock(block);
       if (typeof block.visibleIf === "function") conditionalEls.push({ block, el });
       body.appendChild(el);
     });
@@ -324,6 +330,59 @@ function renderSymptomBlock(block) {
   return wrap;
 }
 
+/* Semptom kodlama bloğu (Var / Yok / Sorgulanmalı; varsayılan Sorgulanmalı) */
+function renderSymptomCodeBlock(block) {
+  const wrap = document.createElement("div");
+  wrap.className = "block";
+  wrap.dataset.block = block.id;
+
+  const q = document.createElement("p");
+  q.className = "block-label";
+  q.textContent = block.label;
+  wrap.appendChild(q);
+
+  const table = document.createElement("div");
+  table.className = "symptom-table";
+
+  const STATES = [
+    { key: "var", label: "Var" },
+    { key: "yok", label: "Yok" },
+    { key: "sorgu", label: "Sorgulanmalı" }
+  ];
+
+  block.symptoms.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "symptom-row code";
+
+    const name = document.createElement("span");
+    name.className = "symptom-name";
+    name.textContent = s.label;
+    row.appendChild(name);
+
+    const seg = document.createElement("div");
+    seg.className = "segmented small";
+    STATES.forEach((stt) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "seg-btn";
+      btn.textContent = stt.label;
+      if (state[block.id][s.id] === stt.key) btn.classList.add("active");
+      btn.addEventListener("click", () => {
+        state[block.id][s.id] = stt.key;
+        seg.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        generate();
+      });
+      seg.appendChild(btn);
+    });
+    row.appendChild(seg);
+    table.appendChild(row);
+  });
+
+  wrap.appendChild(table);
+  return wrap;
+}
+
 /* ---------- Taslak üretimi ---------- */
 function generate() {
   applyVisibility();
@@ -336,6 +395,9 @@ function generate() {
       if (typeof block.visibleIf === "function" && !block.visibleIf(state)) return;
       if (block.type === "symptoms") {
         const txt = buildSymptoms(block.symptoms, state[block.id]);
+        if (txt) sentences.push(txt);
+      } else if (block.type === "symptom-code") {
+        const txt = buildSymptomCode(block.symptoms, state[block.id]);
         if (txt) sentences.push(txt);
       } else {
         const st = state[block.id];
@@ -353,7 +415,7 @@ function generate() {
       '<p class="preview-empty">Soruları yanıtladıkça anamnez taslağı burada oluşacak.</p>';
     preview.dataset.text = "";
   } else {
-    preview.innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+    preview.innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
     preview.dataset.text = paragraphs.join("\n\n");
   }
 
@@ -370,6 +432,9 @@ function updateProgress() {
       total++;
       if (block.type === "symptoms") {
         const answered = Object.values(state[block.id]).some((s) => s.freq && s.freq !== "atla");
+        if (answered) done++;
+      } else if (block.type === "symptom-code") {
+        const answered = Object.values(state[block.id]).some((v) => v !== "sorgu");
         if (answered) done++;
       } else if (state[block.id].mode !== "skip") {
         done++;
