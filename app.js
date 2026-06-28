@@ -9,7 +9,8 @@ const TEMPLATES = {
   "tip2-dm": TIP2_DM_SEMA,
   kky: KKY_SEMA,
   koah: KOAH_SEMA,
-  astim: ASTIM_SEMA
+  astim: ASTIM_SEMA,
+  kbh: KBH_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
