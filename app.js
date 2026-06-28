@@ -13,7 +13,8 @@ const TEMPLATES = {
   kbh: KBH_SEMA,
   hipotiroidi: HIPOTIROIDI_SEMA,
   hipertiroidi: HIPERTIROIDI_SEMA,
-  mng: MNG_SEMA
+  mng: MNG_SEMA,
+  siroz: SIROZ_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
@@ -400,7 +401,7 @@ function generate() {
         if (txt) sentences.push(txt);
       } else if (block.type === "symptom-code") {
         const txt = buildSymptomCode(block.symptoms, state[block.id]);
-        if (txt) sentences.push(txt);
+        if (txt) sentences.push((block.noteHeader ? block.noteHeader + "\n" : "") + txt);
       } else {
         const st = state[block.id];
         const mode = block.modes.find((m) => m.key === st.mode);
