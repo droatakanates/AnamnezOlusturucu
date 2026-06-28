@@ -2,9 +2,18 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Anamnez Oluşturucu</title>
   <meta name="description" content="Form bazlı soru-cevaplarla anamnez taslağı üreten klinik araç." />
+  <!-- iOS / PWA: ana ekrana eklenince tam ekran uygulama gibi açılır -->
+  <meta name="theme-color" content="#0d9488" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Anamnez" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
   <!-- Gizlilik: dışarıya ağ bağlantısı/veri gönderimi engellenir (fetch/XHR/
        WebSocket/beacon ve form gönderimi). Yerel dosya açışını bozmamak için
        default-src kullanılmaz; zaten hiçbir dış kaynak yüklenmiyor. -->
@@ -146,5 +155,6 @@
   <script src="astim.js"></script>
   <script src="app.js"></script>
   <script src="acil.js"></script>
+  <script src="pwa.js"></script>
 </body>
 </html>
