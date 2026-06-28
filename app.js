@@ -11,7 +11,8 @@ const TEMPLATES = {
   koah: KOAH_SEMA,
   astim: ASTIM_SEMA,
   kbh: KBH_SEMA,
-  hipotiroidi: HIPOTIROIDI_SEMA
+  hipotiroidi: HIPOTIROIDI_SEMA,
+  hipertiroidi: HIPERTIROIDI_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
