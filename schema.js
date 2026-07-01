@@ -41,8 +41,23 @@ function fmtDate(iso) {
 /* Akıcı tanı cümlesi: "<zaman> <yer> <şikayet> şikayetiyle başvurusu üzerine
    yapılan tetkikler sonucunda <hastalık> tanısı almış" (eksik alanlar atlanır).
    Sondaki noktayı çağıran ekler. */
+/* Tanı zamanı ifadesini düzeltir:
+   "2020" -> "2020 yılında", "6" -> "6 yıl önce", "5 yıl" -> "5 yıl önce",
+   "6 ay" -> "6 ay önce"; tam yazılmışsa ("2018 yılında", "6 yıl önce") aynen bırakır. */
+function zamanIfade(v) {
+  const s = String(v == null ? "" : v).trim();
+  if (!s) return "…";
+  if (/^\d{4}$/.test(s)) return s + " yılında";
+  if (/^\d{1,2}$/.test(s)) return s + " yıl önce";
+  if (/^\d+\s*yıl$/i.test(s)) return s + " önce";
+  if (/^\d+\s*ay$/i.test(s)) return s + " önce";
+  return s;
+}
+/* Zaman ifadesini düzeltip cümle başı için ilk harfini büyütür */
+function zamanBasla(v) { return buyukHarfBasla(zamanIfade(v)); }
+
 function taniCumlesi(hastalik, v) {
-  let s = buyukHarfBasla(v.zaman || "…");
+  let s = zamanBasla(v.zaman);
   if (v.yer) s += ` ${v.yer}`;
   if (v.sikayet) s += ` ${v.sikayet} şikayetiyle başvurusu üzerine yapılan tetkikler sonucunda`;
   else if (v.yer) s += ` yapılan değerlendirme sonucunda`;
@@ -966,7 +981,7 @@ const TIP2_DM_SEMA = {
                 { name: "sikayet", type: "text", label: "Başvuru şikayeti (varsa)", placeholder: "ör. poliüri ve polidipsi" }
               ],
               build: (v) => {
-                const zaman = buyukHarfBasla(v.yil || "…");
+                const zaman = zamanBasla(v.yil);
                 if (v.merkez === "ev ölçümlerinin yüksek gelmesi")
                   return `${zaman} ev kan şekeri ölçümlerinin yüksek saptanması üzerine yapılan tetkiklerle Tip 2 DM tanısı almış.`;
                 const sik = v.sikayet ? ` ${v.sikayet} şikayetiyle` : "";

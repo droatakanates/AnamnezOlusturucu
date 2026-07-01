@@ -37,7 +37,7 @@ const KBH_SEMA = {
                 { name: "etyoloji", type: "text", label: "Etyoloji", placeholder: "ör. diyabetik nefropati / hipertansif nefroskleroz" }
               ],
               build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")}` +
+                `${zamanBasla(v.zaman)}` +
                 (v.etyoloji ? ` ${v.etyoloji} zemininde` : "") +
                 " kronik böbrek hastalığı tanısı almış."
             },

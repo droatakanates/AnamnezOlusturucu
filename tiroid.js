@@ -24,7 +24,7 @@ const HIPOTIROIDI_SEMA = {
                 { name: "etyoloji", type: "text", label: "Etyoloji / tanı tipi", placeholder: "ör. Hashimoto tiroiditi / postoperatif / RAI sonrası" }
               ],
               build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")} hipotiroidi tanısı almış` +
+                `${zamanBasla(v.zaman)} hipotiroidi tanısı almış` +
                 (v.etyoloji ? `; etyoloji ${v.etyoloji} olarak değerlendirilmiş` : "") + "."
             },
             SKIP
@@ -146,7 +146,7 @@ const HIPERTIROIDI_SEMA = {
                 { name: "etyoloji", type: "text", label: "Etyoloji / tanı tipi", placeholder: "ör. Graves hastalığı / toksik multinodüler guatr / toksik adenom / tiroidit" }
               ],
               build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")} hipertiroidi tanısı almış` +
+                `${zamanBasla(v.zaman)} hipertiroidi tanısı almış` +
                 (v.etyoloji ? `; etyoloji ${v.etyoloji} olarak değerlendirilmiş` : "") + "."
             },
             SKIP
@@ -275,7 +275,7 @@ const MNG_SEMA = {
                 }
               ],
               build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")} ${v.farkedilme || "yapılan değerlendirmede"} ` +
+                `${zamanBasla(v.zaman)} ${v.farkedilme || "yapılan değerlendirmede"} ` +
                 "multinodüler guatr saptanmış."
             },
             SKIP
