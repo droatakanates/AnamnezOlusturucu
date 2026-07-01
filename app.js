@@ -416,6 +416,9 @@ function buildParagraphs(sch, st) {
   return paragraphs;
 }
 
+/* Şablon başlığından kısa hastalık adı: "KOAH Anamnezi" -> "KOAH" */
+function shortName(t) { return t.replace(/\s*Anamnezi$/i, ""); }
+
 function generate() {
   applyVisibility();
   savedStates[currentId] = state;
@@ -438,12 +441,13 @@ function generate() {
     let html = "";
     const txtBlocks = [];
     parts.forEach((pt) => {
-      if (multi) html += `<h3 class="disease-heading">${escapeHtml(pt.title)}</h3>`;
+      const kisa = shortName(pt.title);
+      if (multi) html += `<h3 class="disease-heading">${escapeHtml(kisa)}:</h3>`;
       html += pt.paras.map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
-      txtBlocks.push((multi ? `■ ${pt.title}\n` : "") + pt.paras.join("\n\n"));
+      txtBlocks.push((multi ? `${kisa}:\n` : "") + pt.paras.join("\n\n"));
     });
     preview.innerHTML = html;
-    preview.dataset.text = txtBlocks.join("\n\n\n");
+    preview.dataset.text = txtBlocks.join("\n\n");
   }
 
   updateProgress();

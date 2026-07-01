@@ -193,7 +193,7 @@
     if (p2.length) P.push(p2.join(" "));
 
     if (s.kronikAnamnez.trim())
-      P.push("Özgeçmiş / bilinen kronik hastalık öyküsü:\n" + s.kronikAnamnez.trim());
+      P.push("Bilinen Hastalıklarının Öyküsü:\n" + s.kronikAnamnez.trim());
 
     // Düzenli kullandığı ilaçlar — alt alta
     const ilacLines = String(s.duzenliIlaclar || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
