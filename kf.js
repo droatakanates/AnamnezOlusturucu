@@ -20,55 +20,7 @@ const KF_SEMA = {
   id: "kf",
   title: "Kistik Fibrozis Anamnezi",
   groups: [
-    /* ===== 1. Başvuru Şikayeti ve Kısa Öykü ===== */
-    {
-      id: "kf-basvuru",
-      title: "Başvuru Şikayeti ve Kısa Öykü",
-      blocks: [
-        {
-          id: "kf-basvuru-detay", label: "Başvuru bilgileri", default: "skip",
-          modes: [
-            {
-              key: "fill", label: "Doldur",
-              fields: [
-                { name: "tarih", type: "text", label: "Başvuru tarihi", placeholder: "ör. 20.06.2026" },
-                { name: "yer", type: "text", label: "Başvuru yeri", placeholder: "ör. göğüs hastalıkları polikliniğine / acil servise" },
-                { name: "sikayet", type: "text", label: "Ana şikayetler", placeholder: "ör. öksürük, balgam artışı ve nefes darlığı" }
-              ],
-              build: (v) => {
-                let s = "Hasta";
-                if (v.tarih) s += ` ${v.tarih} tarihinde`;
-                if (v.yer) s += ` ${v.yer}`;
-                return s + ` ${v.sikayet || "…"} şikayetleriyle başvurmuş.`;
-              }
-            }, SKIP
-          ]
-        },
-        {
-          id: "kf-basvuru-seyir", label: "Şikayetlerin başlangıcı ve seyri", default: "skip",
-          modes: [
-            {
-              key: "fill", label: "Doldur",
-              fields: [
-                { name: "zaman", type: "text", label: "Başlangıç zamanı", placeholder: "ör. yaklaşık 10 gün önce" },
-                { name: "sekil", type: "select", label: "Başlangıç şekli", options: ["ani", "sinsi", "dalgalı", "bilinmiyor"] },
-                { name: "seyir", type: "select", label: "Seyir", options: ["artıyor", "azalıyor", "stabil", "tekrarlayıcı"] }
-              ],
-              build: (v) => {
-                let s = "Şikayetleri";
-                if (v.zaman) s += ` ${v.zaman}`;
-                s += " başlamış";
-                if (v.sekil) s += `, başlangıcı ${v.sekil}`;
-                if (v.seyir) s += ` ve seyri ${v.seyir}`;
-                return s + ".";
-              }
-            }, SKIP
-          ]
-        }
-      ]
-    },
-
-    /* ===== 2. Kistik Fibrozis Tanısının Öyküsü ===== */
+    /* ===== 1. Kistik Fibrozis Tanısının Öyküsü ===== */
     {
       id: "kf-tani",
       title: "Kistik Fibrozis Tanısının Öyküsü",
