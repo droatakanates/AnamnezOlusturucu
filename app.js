@@ -15,7 +15,8 @@ const TEMPLATES = {
   hipertiroidi: HIPERTIROIDI_SEMA,
   mng: MNG_SEMA,
   siroz: SIROZ_SEMA,
-  kf: KF_SEMA
+  kf: KF_SEMA,
+  "hepatit-b": HEPATIT_B_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
