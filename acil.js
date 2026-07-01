@@ -142,14 +142,15 @@
     if (s.gks) g.push(`GKS: ${s.gks}`);
     if (g.length) L.push(cap(g.join(", ")));
 
+    const mv = (v) => v === "var" ? "mevcut" : v === "yok" ? "mevcut değil" : "";
     const ac = [];
     if (s.akcKatilim === "eşit katılıyor") ac.push("Her iki hemitoraks solunuma eşit katılıyor");
     else if (s.akcKatilim === "eşit katılmıyor")
       ac.push("Her iki hemitoraks solunuma eşit katılmıyor" + (s.akcKatilimNot ? ` (${s.akcKatilimNot})` : ""));
-    if (s.ral === "yok" && s.ronkus === "yok") ac.push("ral ve ronküs yok");
+    if (s.ral === "yok" && s.ronkus === "yok") ac.push("ral ve ronküs mevcut değil");
     else {
-      if (s.ral) ac.push(`ral ${s.ral}${s.ral === "var" && s.ralLok ? ` (${s.ralLok})` : ""}`);
-      if (s.ronkus) ac.push(`ronküs ${s.ronkus}${s.ronkus === "var" && s.ronkusLok ? ` (${s.ronkusLok})` : ""}`);
+      if (s.ral) ac.push(`ral ${mv(s.ral)}${s.ral === "var" && s.ralLok ? ` (${s.ralLok})` : ""}`);
+      if (s.ronkus) ac.push(`ronküs ${mv(s.ronkus)}${s.ronkus === "var" && s.ronkusLok ? ` (${s.ronkusLok})` : ""}`);
     }
     if (ac.length) L.push("Akciğer Muayenesi: " + cap(ac.join(", ")));
 
@@ -162,7 +163,7 @@
       const d = dr("defans", s.defans, s.defansLok), r = dr("rebound", s.rebound, s.reboundLok);
       if (d) ba.push(d); if (r) ba.push(r);
     }
-    if (s.hsm) ba.push(`hepatosplenomegali ${s.hsm}`);
+    if (s.hsm) ba.push(`hepatosplenomegali ${mv(s.hsm)}`);
     if (ba.length) L.push("Batın Muayenesi: " + cap(ba.join(", ")));
 
     if (s.pto) L.push(`PTÖ: ${s.pto}`);
