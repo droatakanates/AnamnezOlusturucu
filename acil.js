@@ -12,7 +12,14 @@
 
   /* NOT: Şikayete özgü (ör. dispne) semptom sorgulaması ileride eklenecek. */
   const GENEL_DURUM = ["iyi", "orta", "kötü"];
-  const BILINC = ["açık", "konfüze", "kapalı"];
+  const BILINC = ["açık", "kapalı", "stupor", "letarjik"];
+  const ORYANTE = ["oryante", "non-oryante"];
+  const KOOPERE = ["koopere", "non-koopere"];
+  const KATILIM = ["eşit katılıyor", "eşit katılmıyor"];
+  const VARYOK = ["yok", "var"];
+  const BATIN_GORUNUM = ["olağan görünümde", "distandü", "rahat"];
+  const BARSAK = ["hipoaktif", "normoaktif", "hiperaktif"];
+  const PTO_OPT = ["-/-", "Eser", "+/+", "++/++", "+++/+++"];
   const CINSIYET = ["Kadın", "Erkek"];
   const SONUC = [
     "dahiliye servisine yatış", "yoğun bakım değerlendirmesi", "acil serviste takip",
@@ -28,18 +35,20 @@
     { k: "laktat", l: "Laktat", u: "mmol/L" }
   ];
   const VITAL = [
-    { k: "ta", l: "TA", u: "mmHg", ph: "120/80" }, { k: "nabiz", l: "Nabız", u: "/dk" },
-    { k: "ates", l: "Ateş", u: "°C" }, { k: "spo2", l: "SpO₂", u: "%" },
-    { k: "solunum", l: "Solunum", u: "/dk" }
+    { k: "ta", l: "Kan Basıncı", u: "mmHg", ph: "120/80" }, { k: "nabiz", l: "Nabız", u: "/dk" },
+    { k: "solunum", l: "Solunum Sayısı", u: "/dk" }, { k: "ates", l: "Vücut Sıcaklığı", u: "°C" },
+    { k: "spo2", l: "SpO₂", u: "%" }
   ];
 
   const s = {
     yas: "", cinsiyet: "", kronikTanilar: "", isteyenBirim: "", konsultasyonNedeni: "",
     kronikAnamnez: "",
     basvuruSikayeti: "", sikayetSuresi: "",
-    duzenliIlaclar: "", antikoagulan: false,
+    duzenliIlaclar: "",
     ta: "", nabiz: "", ates: "", spo2: "", solunum: "",
-    genelDurum: "", bilinc: "", fizikMuayene: "",
+    genelDurum: "", bilinc: "", oryantasyon: "", kooperasyon: "", gks: "",
+    akcKatilim: "", akcKatilimNot: "", ral: "", ralLok: "", ronkus: "", ronkusLok: "",
+    batinGorunum: "", barsakSes: "", defans: "", defansLok: "", rebound: "", reboundLok: "", hsm: "", pto: "",
     hb: "", wbc: "", plt: "", ure: "", kreatinin: "", na: "", k: "", crp: "",
     ast: "", alt: "", bilirubin: "", inr: "", laktat: "", kanGazi: "",
     skorEkle: false,
@@ -108,21 +117,74 @@
     return scores;
   }
 
+  /* Türkçe ayrılma hâli eki: HÜTF BAP -> HÜTF BAP'tan */
+  function ablatif(w) {
+    if (!w) return w;
+    const t = String(w).trim();
+    const lower = t.toLocaleLowerCase("tr-TR");
+    const vowels = "aeıioöuü";
+    let lastV = "e";
+    for (let i = lower.length - 1; i >= 0; i--) { if (vowels.includes(lower[i])) { lastV = lower[i]; break; } }
+    const ekV = "aıou".includes(lastV) ? "a" : "e";
+    const sert = "fstkçşhp";
+    const d = sert.includes(lower[lower.length - 1]) ? "t" : "d";
+    return `${t}'${d}${ekV}n`;
+  }
+
+  /* Fizik muayene metni (yapılandırılmış) */
+  function fizikText() {
+    const L = [];
+    const g = [];
+    if (s.genelDurum) g.push(`Genel durumu ${s.genelDurum}`);
+    if (s.bilinc) g.push(`bilinç ${s.bilinc}`);
+    if (s.oryantasyon) g.push(s.oryantasyon);
+    if (s.kooperasyon) g.push(s.kooperasyon);
+    if (s.gks) g.push(`GKS: ${s.gks}`);
+    if (g.length) L.push(cap(g.join(", ")));
+
+    const ac = [];
+    if (s.akcKatilim === "eşit katılıyor") ac.push("Her iki hemitoraks solunuma eşit katılıyor");
+    else if (s.akcKatilim === "eşit katılmıyor")
+      ac.push("Her iki hemitoraks solunuma eşit katılmıyor" + (s.akcKatilimNot ? ` (${s.akcKatilimNot})` : ""));
+    if (s.ral === "yok" && s.ronkus === "yok") ac.push("ral ve ronküs yok");
+    else {
+      if (s.ral) ac.push(`ral ${s.ral}${s.ral === "var" && s.ralLok ? ` (${s.ralLok})` : ""}`);
+      if (s.ronkus) ac.push(`ronküs ${s.ronkus}${s.ronkus === "var" && s.ronkusLok ? ` (${s.ronkusLok})` : ""}`);
+    }
+    if (ac.length) L.push("Akciğer Muayenesi: " + cap(ac.join(", ")));
+
+    const ba = [];
+    if (s.batinGorunum) ba.push(`Batın ${s.batinGorunum}`);
+    if (s.barsakSes) ba.push(`barsak sesleri ${s.barsakSes}`);
+    const dr = (name, st, lok) => st === "var" ? `${lok ? lok + " " : ""}${name} +` : st === "yok" ? `${name} yok` : "";
+    if (s.defans === "yok" && s.rebound === "yok") ba.push("defans ve rebound yok");
+    else {
+      const d = dr("defans", s.defans, s.defansLok), r = dr("rebound", s.rebound, s.reboundLok);
+      if (d) ba.push(d); if (r) ba.push(r);
+    }
+    if (s.hsm) ba.push(`hepatosplenomegali ${s.hsm}`);
+    if (ba.length) L.push("Batın Muayenesi: " + cap(ba.join(", ")));
+
+    if (s.pto) L.push(`PTÖ: ${s.pto}`);
+    return L.join("\n");
+  }
+
   /* ---------------- not üretici (saf) ---------------- */
   function generateNote() {
     const P = [];
 
-    const bits = [];
-    if (s.yas) bits.push(`${s.yas} yaşında`);
-    if (s.kronikTanilar) bits.push(`${s.kronikTanilar} tanılı`);
-    let subj = bits.join(", ");
-    const cins = s.cinsiyet ? `${s.cinsiyet.toLocaleLowerCase("tr-TR")} hasta` : "hasta";
-    subj = subj ? `${subj} ${cins}` : cap(cins);
-    let p1 = `${bits.length ? cap(subj) : subj} tarafımıza`;
-    if (s.konsultasyonNedeni) p1 += ` ${s.konsultasyonNedeni} nedeniyle`;
-    if (s.isteyenBirim) p1 += ` ${s.isteyenBirim} tarafından`;
-    p1 += " konsülte edildi.";
-    P.push(p1);
+    // Künye satırı (68Y/E) + konsültasyon cümlesi
+    const cinsKisa = s.cinsiyet === "Erkek" ? "E" : s.cinsiyet === "Kadın" ? "K" : "";
+    let header = "";
+    if (s.yas && cinsKisa) header = `${s.yas}Y/${cinsKisa}`;
+    else if (s.yas) header = `${s.yas}Y`;
+    else if (cinsKisa) header = cinsKisa;
+
+    let sent = s.kronikTanilar ? `Bilinen ${s.kronikTanilar} tanıları bulunan hasta` : "Hasta";
+    if (s.konsultasyonNedeni) sent += ` ${s.konsultasyonNedeni} nedeniyle`;
+    sent += s.isteyenBirim ? ` ${ablatif(s.isteyenBirim)} tarafımıza` : " tarafımıza";
+    sent += " konsülte edildi.";
+    P.push(header ? `${header}\n${sent}` : sent);
 
     const p2 = [];
     if (s.basvuruSikayeti) p2.push(`Hasta acil servise ${s.basvuruSikayeti} nedeniyle başvurmuş.`);
@@ -132,27 +194,24 @@
     if (s.kronikAnamnez.trim())
       P.push("Özgeçmiş / bilinen kronik hastalık öyküsü:\n" + s.kronikAnamnez.trim());
 
-    const p3 = [];
-    if (s.duzenliIlaclar) p3.push(`Düzenli kullandığı ilaçlar: ${s.duzenliIlaclar}.`);
-    p3.push(`Antikoagülan/antiagregan kullanımı ${s.antikoagulan ? "var" : "yok"}.`);
-    const vit = [];
-    if (s.ta) vit.push(`TA ${s.ta} mmHg`);
-    if (s.nabiz) vit.push(`nabız ${s.nabiz}/dk`);
-    if (s.ates) vit.push(`ateş ${s.ates} °C`);
-    if (s.spo2) vit.push(`SpO₂ %${s.spo2}`);
-    if (s.solunum) vit.push(`solunum sayısı ${s.solunum}/dk`);
-    if (vit.length) p3.push(`Başvuru vital bulguları: ${vit.join(", ")}.`);
-    const gb = [];
-    if (s.genelDurum) gb.push(`genel durumu ${s.genelDurum}`);
-    if (s.bilinc) gb.push(`bilinç ${s.bilinc}`);
-    if (gb.length) p3.push(cap(gb.join(", ")) + ".");
-    if (s.fizikMuayene) p3.push(`Fizik muayenede ${s.fizikMuayene} saptandı.`);
-    if (p3.length) P.push(p3.join(" "));
+    // Düzenli kullandığı ilaçlar — alt alta
+    const ilacLines = String(s.duzenliIlaclar || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+    if (ilacLines.length) P.push("Düzenli Kullandığı İlaçlar:\n" + ilacLines.join("\n"));
 
+    // Vital bulgular — alt alta
+    const vitLines = VITAL.filter((f) => String(s[f.k]).trim() !== "")
+      .map((f) => `${f.l}: ${s[f.k]}${f.u ? " " + f.u : ""}`);
+    if (vitLines.length) P.push("Vital Bulgular:\n" + vitLines.join("\n"));
+
+    // Fizik muayene
+    const fz = fizikText();
+    if (fz) P.push("Fizik Muayene:\n" + fz);
+
+    // Laboratuvar (atlanabilir — boşsa nota işlenmez)
     const labs = LAB.filter((f) => String(s[f.k]).trim() !== "")
       .map((f) => `${f.l} ${s[f.k]}${f.u ? " " + f.u : ""}`);
     const p4 = [];
-    if (labs.length) p4.push(`Laboratuvar bulguları: ${labs.join(", ")}.`);
+    if (labs.length) p4.push(`Laboratuvar Sonuçları: ${labs.join(", ")}.`);
     if (s.kanGazi) p4.push(`Kan gazı: ${s.kanGazi}.`);
     if (p4.length) P.push(p4.join(" "));
 
@@ -162,14 +221,15 @@
       if (lines.length) P.push("Hesaplanan skorlar (karar desteği):\n" + lines.join("\n"));
     }
 
+    // Ön tanı (düz) + değerlendirme (1) 2) 3))
     const p5 = [];
-    if (s.onTani) p5.push(`Mevcut klinik ve laboratuvar bulgularıyla hasta ${s.onTani} açısından değerlendirildi.`);
+    if (s.onTani) p5.push(`Ön Tanı: ${s.onTani}`);
     const probs = s.problemler.filter((x) => x.trim());
-    if (probs.length) p5.push("Değerlendirme:\n" + probs.map((p, i) => `${i + 1}. ${p}`).join("\n"));
+    if (probs.length) p5.push("Değerlendirme:\n" + probs.map((p, i) => `${i + 1}) ${p}`).join("\n"));
     if (p5.length) P.push(p5.join("\n\n"));
 
     const ons = s.oneriler.filter((x) => x.trim());
-    if (ons.length) P.push("Öneriler:\n" + ons.map((o) => `- ${o}`).join("\n"));
+    if (ons.length) P.push("Öneriler:\n" + ons.map((o, i) => `${i + 1}) ${o}`).join("\n"));
 
     if (s.sonuc) {
       const detay = s.sonucDetay ? ` (${s.sonucDetay})` : "";
@@ -301,6 +361,20 @@
   }
   function row(cls, children) { const r = mk("div", cls); children.forEach((c) => r.appendChild(c)); return r; }
 
+  /* segmented + lokalizasyon metin kutusu (ral, ronküs, defans, rebound) */
+  function segLoc(labelText, options, key, lokKey, lokPh) {
+    const w = mk("div", "acil-field");
+    const l = mk("span", "field-label"); l.textContent = labelText;
+    w.appendChild(l);
+    w.appendChild(segmented(options, key));
+    const lok = mk("input", "field-input"); lok.type = "text";
+    lok.placeholder = lokPh || "lokalizasyon (varsa)";
+    lok.value = s[lokKey]; lok.style.marginTop = "6px";
+    lok.addEventListener("input", () => { s[lokKey] = lok.value; render(); });
+    w.appendChild(lok);
+    return w;
+  }
+
   /* kronik anamnez aktar */
   function importBox() {
     const wrap = mk("div");
@@ -388,35 +462,58 @@
     root.appendChild(c.sec);
 
     c = card("4", "İlaçlar & vital bulgular");
-    c.body.appendChild(field("Düzenli kullandığı ilaçlar", textInput("duzenliIlaclar", "metformin, ramipril...", true)));
-    c.body.appendChild(toggle("antikoagulan", (v) => `Antikoagülan / antiagregan kullanımı: <b>${v ? "VAR" : "yok"}</b>`));
+    c.body.appendChild(field("Düzenli kullandığı ilaçlar (her satıra bir ilaç)",
+      textInput("duzenliIlaclar", "Metformin 2x1000 mg\nRamipril 1x5 mg", true)));
     c.body.appendChild(label("Vital bulgular"));
     c.body.appendChild(vitalGrid(VITAL, "acil-vitals"));
+    root.appendChild(c.sec);
+
+    c = card("5", "Fizik muayene");
     c.body.appendChild(row("acil-row2", [
       field("Genel durum", segmented(GENEL_DURUM, "genelDurum")),
       field("Bilinç", segmented(BILINC, "bilinc"))
     ]));
-    c.body.appendChild(field("Fizik muayene (pozitif bulgular)", textInput("fizikMuayene", "bibaziler ral, pretibial ödem...", true)));
+    c.body.appendChild(row("acil-row3", [
+      field("Oryantasyon", segmented(ORYANTE, "oryantasyon")),
+      field("Kooperasyon", segmented(KOOPERE, "kooperasyon")),
+      field("GKS", textInput("gks", "15"))
+    ]));
+    c.body.appendChild(label("Akciğer muayenesi"));
+    c.body.appendChild(field("Solunuma katılım", segmented(KATILIM, "akcKatilim")));
+    c.body.appendChild(field("Katılmıyorsa açıklama", textInput("akcKatilimNot", "ör. sol bazalde azalmış")));
+    c.body.appendChild(segLoc("Ral", VARYOK, "ral", "ralLok", "ral lokalizasyonu"));
+    c.body.appendChild(segLoc("Ronküs", VARYOK, "ronkus", "ronkusLok", "ronküs lokalizasyonu"));
+    c.body.appendChild(label("Batın muayenesi"));
+    c.body.appendChild(row("acil-row2", [
+      field("Görünüm", segmented(BATIN_GORUNUM, "batinGorunum")),
+      field("Barsak sesleri", segmented(BARSAK, "barsakSes"))
+    ]));
+    c.body.appendChild(segLoc("Defans", VARYOK, "defans", "defansLok", "ör. sağ alt kadranda"));
+    c.body.appendChild(segLoc("Rebound", VARYOK, "rebound", "reboundLok", "ör. sağ alt kadranda"));
+    c.body.appendChild(row("acil-row2", [
+      field("Hepatosplenomegali", segmented(VARYOK, "hsm")),
+      field("PTÖ", segmented(PTO_OPT, "pto"))
+    ]));
     root.appendChild(c.sec);
 
-    c = card("5", "Laboratuvar");
+    c = card("6", "Laboratuvar (opsiyonel)");
     c.body.appendChild(vitalGrid(LAB, "acil-labs"));
     c.body.appendChild(field("Kan gazı", textInput("kanGazi", "pH 7.32 / pCO₂ 30 / HCO₃ 16")));
     root.appendChild(c.sec);
 
-    c = card("6", "Otomatik skorlar");
+    c = card("7", "Otomatik skorlar");
     c.body.appendChild(toggle("skorEkle", (v) => `Skorları konsültasyon notuna ekle: <b>${v ? "EVET" : "hayır"}</b>`));
     scoresBody = mk("div", "scores-body");
     c.body.appendChild(scoresBody);
     root.appendChild(c.sec);
 
-    c = card("7", "Değerlendirme");
-    c.body.appendChild(field("Ön tanı / klinik problem", textInput("onTani", "prerenal AKI")));
-    c.body.appendChild(label("Problem listesi"));
+    c = card("8", "Değerlendirme");
+    c.body.appendChild(field("Ön tanı", textInput("onTani", "HES Evre I / Prerenal ABH")));
+    c.body.appendChild(label("Sorun listesi"));
     c.body.appendChild(list("problemler", true));
     root.appendChild(c.sec);
 
-    c = card("8", "Öneriler & sonuç");
+    c = card("9", "Öneriler & sonuç");
     c.body.appendChild(label("Öneriler"));
     c.body.appendChild(list("oneriler", false));
     c.body.appendChild(label("Sonuç / disposition"));
