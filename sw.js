@@ -1,6 +1,6 @@
 /* Service Worker — çevrimdışı çalışma için uygulama kabuğunu önbelleğe alır.
    Sürüm değişince CACHE adını artır → eski önbellek temizlenir. */
-const CACHE = "anamnez-v7";
+const CACHE = "anamnez-v8";
 const ASSETS = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const ASSETS = [
   "./kbh.js",
   "./tiroid.js",
   "./siroz.js",
+  "./kf.js",
   "./app.js",
   "./acil.js",
   "./pwa.js",
