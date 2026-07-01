@@ -37,7 +37,7 @@
   const VITAL = [
     { k: "ta", l: "Kan Basıncı", u: "mmHg", ph: "120/80" }, { k: "nabiz", l: "Nabız", u: "/dk" },
     { k: "solunum", l: "Solunum Sayısı", u: "/dk" }, { k: "ates", l: "Vücut Sıcaklığı", u: "°C" },
-    { k: "spo2", l: "SpO₂", u: "%" }
+    { k: "spo2", l: "SpO₂", u: "%", pre: true, ph: "92 (oda havasında)" }
   ];
 
   const s = {
@@ -198,9 +198,9 @@
     const ilacLines = String(s.duzenliIlaclar || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
     if (ilacLines.length) P.push("Düzenli Kullandığı İlaçlar:\n" + ilacLines.join("\n"));
 
-    // Vital bulgular — alt alta
+    // Vital bulgular — alt alta (SpO₂ için birim sayıdan önce: %92)
     const vitLines = VITAL.filter((f) => String(s[f.k]).trim() !== "")
-      .map((f) => `${f.l}: ${s[f.k]}${f.u ? " " + f.u : ""}`);
+      .map((f) => f.pre ? `${f.l}: ${f.u}${s[f.k]}` : `${f.l}: ${s[f.k]}${f.u ? " " + f.u : ""}`);
     if (vitLines.length) P.push("Vital Bulgular:\n" + vitLines.join("\n"));
 
     // Fizik muayene
@@ -299,11 +299,15 @@
     list.forEach((f) => {
       const cell = mk("div", "vcell");
       const lab = mk("span", "vlab"); lab.textContent = f.l;
+      cell.appendChild(lab);
+      const inRow = mk("div", "vin-row");
+      if (f.pre && f.u) { const up = mk("span", "vunit"); up.textContent = f.u; inRow.appendChild(up); }
       const inp = mk("input", "vinput"); inp.inputMode = "decimal";
       inp.value = s[f.k]; if (f.ph) inp.placeholder = f.ph;
       inp.addEventListener("input", () => { s[f.k] = inp.value; render(); });
-      cell.appendChild(lab); cell.appendChild(inp);
-      if (f.u) { const u = mk("span", "vunit"); u.textContent = f.u; cell.appendChild(u); }
+      inRow.appendChild(inp);
+      if (!f.pre && f.u) { const u = mk("span", "vunit"); u.textContent = f.u; inRow.appendChild(u); }
+      cell.appendChild(inRow);
       g.appendChild(cell);
     });
     return g;
