@@ -185,6 +185,7 @@ const HIPERTANSIYON_SEMA = {
               label: "Doldur",
               fields: [
                 { name: "sure", type: "text", label: "Ne kadar önce", placeholder: "ör. 5 yıl" },
+                { name: "yil", type: "text", label: "Tanı yılı (alternatif)", placeholder: "ör. 2020" },
                 {
                   name: "yer", type: "select", label: "Tanı durumu",
                   options: [
@@ -196,7 +197,7 @@ const HIPERTANSIYON_SEMA = {
                 { name: "sikayet", type: "text", label: "Başvuru şikayeti (varsa)", placeholder: "ör. baş ağrısı" }
               ],
               build: (v) =>
-                `${v.sure || "…"} önce ${v.yer || "…"} sırasında` +
+                `${zamanBasla(v.yil || v.sure)} ${v.yer || "…"} sırasında` +
                 (v.sikayet ? ` ${v.sikayet} şikayetiyle yapılan değerlendirmede` : "") +
                 ` hipertansiyon tanısı almış.`
             },

@@ -166,13 +166,31 @@ const SIROZ_SEMA = {
           ]
         },
         durumBlok("sir-biyopsi", "Karaciğer biyopsisi yapıldı mı?", [
-          { key: "yes", label: "Yapıldı", fields: [{ name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. evre 4 fibrozis" }], build: (v) => `Karaciğer biyopsisi yapılmış${v.sonuc ? ` (${v.sonuc})` : ""}.` },
+          {
+            key: "yes", label: "Yapıldı",
+            fields: [
+              { name: "tarih", type: "text", label: "Tarih (ay/yıl)", placeholder: "ör. 06/2022" },
+              { name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. evre 4 fibrozis" }
+            ],
+            build: (v) => `Karaciğer biyopsisi yapılmış${v.tarih ? ` (${v.tarih})` : ""}${v.sonuc ? `; ${v.sonuc} saptanmış` : ""}.`
+          },
           { key: "no", label: "Yapılmadı", build: () => "Karaciğer biyopsisi yapılmamış." },
           { key: "bil", label: "Bilinmiyor", build: () => "Karaciğer biyopsisi yapılıp yapılmadığı bilinmiyor." }
         ]),
-        metinBlok("sir-goruntuleme", "Önceki USG / BT / MR bulguları", "Bulgular",
-          "ör. nodüler karaciğer, splenomegali, portal ven açık",
-          (v) => `Önceki görüntülemelerde ${v} saptanmış.`)
+        {
+          id: "sir-goruntuleme", label: "Önceki USG / BT / MR", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "text", label: "Tarih (ay/yıl)", placeholder: "ör. 03/2025" },
+                { name: "bulgu", type: "text", label: "Bulgular", placeholder: "ör. nodüler karaciğer, splenomegali, portal ven açık" }
+              ],
+              build: (v) => `Son görüntülemede (${v.tarih || "…"}) ${v.bulgu || "…"} saptanmış.`
+            },
+            SKIP
+          ]
+        }
       ]
     },
 

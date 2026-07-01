@@ -429,7 +429,7 @@ function generate() {
     const st = id === currentId ? state : savedStates[id];
     if (!st) return;
     const paras = buildParagraphs(TEMPLATES[id], st);
-    if (paras.length) parts.push({ title: TEMPLATES[id].title, paras });
+    if (paras.length) parts.push({ id, title: TEMPLATES[id].title, paras });
   });
   const multi = parts.length > 1;
 
@@ -450,8 +450,48 @@ function generate() {
     preview.dataset.text = txtBlocks.join("\n\n");
   }
 
+  renderActiveChips(parts);
   updateProgress();
   updateWordCount(preview.dataset.text);
+}
+
+/* Nottaki hastalıkları çip olarak gösterir; × ile ilgili anamnez çıkarılır */
+function renderActiveChips(parts) {
+  const host = document.getElementById("active-diseases");
+  if (!host) return;
+  host.innerHTML = "";
+  if (parts.length < 2) { host.hidden = true; return; }
+  host.hidden = false;
+  const lbl = document.createElement("span");
+  lbl.className = "ad-label";
+  lbl.textContent = "Nottaki hastalıklar:";
+  host.appendChild(lbl);
+  parts.forEach((pt) => {
+    const chip = document.createElement("span");
+    chip.className = "ad-chip";
+    chip.textContent = shortName(pt.title);
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "ad-x";
+    x.textContent = "×";
+    x.title = `${shortName(pt.title)} anamnezini nottan çıkar`;
+    x.setAttribute("aria-label", x.title);
+    x.addEventListener("click", () => removeDisease(pt.id));
+    chip.appendChild(x);
+    host.appendChild(chip);
+  });
+}
+
+/* Bir kronik hastalığın anamnezini nottan çıkarır */
+function removeDisease(id) {
+  if (id === currentId) {
+    initState();     // seçili hastalığı sıfırla (form da boşalır)
+    renderForm();
+  } else {
+    delete savedStates[id];
+  }
+  generate();
+  showToast("Hastalık anamnezi nottan çıkarıldı.");
 }
 
 /* Yanıtlanan (atlanmamış) blok oranını hesaplar */

@@ -302,6 +302,11 @@ body {
   background: linear-gradient(180deg, var(--primary), #2dd4bf);
   border-radius: 4px 0 0 4px;
 }
+.active-diseases { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ad-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); margin-right: 2px; }
+.ad-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--primary-700); background: rgba(13,148,136,0.10); border: 1px solid rgba(13,148,136,0.28); border-radius: 999px; padding: 3px 6px 3px 11px; }
+.ad-x { border: none; background: rgba(13,148,136,0.16); color: var(--primary-700); width: 18px; height: 18px; border-radius: 50%; cursor: pointer; font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.ad-x:hover { background: #dc2626; color: #fff; }
 .disease-heading { margin: 22px 0 10px; font-size: 0.95rem; font-weight: 800; color: var(--primary-700); border-bottom: 2px solid var(--primary); padding-bottom: 4px; letter-spacing: .2px; }
 .disease-heading:first-child { margin-top: 2px; }
 .paper p { margin: 0 0 16px; text-align: justify; }
