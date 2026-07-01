@@ -542,7 +542,11 @@
       setTimeout(() => { copyBtn.textContent = orig; }, 1600);
     });
     document.getElementById("acil-print").addEventListener("click", () => {
-      if (noteEl.dataset.text) window.print();
+      anamnezPrintWindow("Konsültasyon Notu", noteEl.dataset.text);
+    });
+    const wbtn = document.getElementById("acil-word");
+    if (wbtn) wbtn.addEventListener("click", () => {
+      anamnezDownloadWord("konsultasyon.doc", "Konsültasyon Notu", noteEl.dataset.text);
     });
     document.querySelectorAll(".ms-btn").forEach((btn) => {
       btn.addEventListener("click", () => {

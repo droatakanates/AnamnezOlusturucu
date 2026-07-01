@@ -28,7 +28,9 @@ const progressBar = document.getElementById("progress-bar");
 const progressLabel = document.getElementById("progress-label");
 const wordCount = document.getElementById("word-count");
 
-let schema = TEMPLATES.hipertansiyon;
+let currentId = "hipertansiyon";
+let schema = TEMPLATES[currentId];
+let savedStates = {}; // templateId -> state anlık görüntüsü (çoklu kronik hastalık)
 let state = {}; // blockId -> { mode, values:{} } | semptom: { symptomId: {freq, artan} }
 let conditionalEls = []; // koşullu görünür bloklar: [{ block, el }]
 
@@ -48,6 +50,7 @@ function initState() {
       }
     });
   });
+  savedStates[currentId] = state;
 }
 
 /* ---------- Form oluşturma ---------- */
@@ -388,39 +391,59 @@ function renderSymptomCodeBlock(block) {
 }
 
 /* ---------- Taslak üretimi ---------- */
-function generate() {
-  applyVisibility();
+/* Verilen şema + durum için paragraf listesi üretir (saf, DOM'a dokunmaz) */
+function buildParagraphs(sch, st) {
   const paragraphs = [];
-
-  schema.groups.forEach((group) => {
+  sch.groups.forEach((group) => {
     const sentences = [];
     group.blocks.forEach((block) => {
-      // Koşulu sağlanmayan blok taslağa işlenmez
-      if (typeof block.visibleIf === "function" && !block.visibleIf(state)) return;
+      if (typeof block.visibleIf === "function" && !block.visibleIf(st)) return;
+      if (!st[block.id]) return;
       if (block.type === "symptoms") {
-        const txt = buildSymptoms(block.symptoms, state[block.id]);
+        const txt = buildSymptoms(block.symptoms, st[block.id]);
         if (txt) sentences.push(txt);
       } else if (block.type === "symptom-code") {
-        const txt = buildSymptomCode(block.symptoms, state[block.id]);
+        const txt = buildSymptomCode(block.symptoms, st[block.id]);
         if (txt) sentences.push((block.noteHeader ? block.noteHeader + "\n" : "") + txt);
       } else {
-        const st = state[block.id];
-        const mode = block.modes.find((m) => m.key === st.mode);
-        if (mode && typeof mode.build === "function") {
-          sentences.push(mode.build(st.values));
-        }
+        const s0 = st[block.id];
+        const mode = block.modes.find((m) => m.key === s0.mode);
+        if (mode && typeof mode.build === "function") sentences.push(mode.build(s0.values));
       }
     });
     if (sentences.length) paragraphs.push(sentences.join(" "));
   });
+  return paragraphs;
+}
 
-  if (paragraphs.length === 0) {
+function generate() {
+  applyVisibility();
+  savedStates[currentId] = state;
+
+  // Tüm kayıtlı hastalıkların taslaklarını başlıklarıyla birleştir
+  const parts = [];
+  Object.keys(TEMPLATES).forEach((id) => {
+    const st = id === currentId ? state : savedStates[id];
+    if (!st) return;
+    const paras = buildParagraphs(TEMPLATES[id], st);
+    if (paras.length) parts.push({ title: TEMPLATES[id].title, paras });
+  });
+  const multi = parts.length > 1;
+
+  if (parts.length === 0) {
     preview.innerHTML =
       '<p class="preview-empty">Soruları yanıtladıkça anamnez taslağı burada oluşacak.</p>';
     preview.dataset.text = "";
   } else {
-    preview.innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
-    preview.dataset.text = paragraphs.join("\n\n");
+    let html = "";
+    const txtBlocks = [];
+    parts.forEach((pt) => {
+      if (multi) html += `<h3 class="disease-heading">${escapeHtml(pt.title)}</h3>`;
+      html += pt.paras.map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
+      txtBlocks.push((multi ? `■ ${pt.title}\n` : "") + pt.paras.join("\n\n"));
+    });
+    preview.innerHTML = html;
+    preview.dataset.text = txtBlocks.join("\n\n\n");
   }
 
   updateProgress();
@@ -459,6 +482,36 @@ function escapeHtml(s) {
   return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 }
 
+/* ---------- Dışa aktarma: Yazdır/PDF (temiz pencere) ve Word (.doc) ---------- */
+function anamnezPrintWindow(title, text) {
+  if (!text) return showToast("Henüz oluşturulmuş bir taslak yok.");
+  const w = window.open("", "_blank");
+  if (!w) return showToast("Açılır pencereye izin verin (PDF/yazdırma için).");
+  w.document.write(
+    `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>` +
+    "<style>@page{margin:20mm}body{font-family:Georgia,'Times New Roman',serif;font-size:12pt;" +
+    "line-height:1.55;color:#000;white-space:pre-wrap;word-wrap:break-word;margin:0}</style>" +
+    `</head><body>${escapeHtml(text)}</body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+}
+
+function anamnezDownloadWord(filename, title, text) {
+  if (!text) return showToast("Henüz oluşturulmuş bir taslak yok.");
+  const body = escapeHtml(text).replace(/\n/g, "<br>");
+  const html =
+    "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>" +
+    `<head><meta charset='utf-8'><title>${escapeHtml(title)}</title></head>` +
+    `<body><div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.5">${body}</div></body></html>`;
+  const blob = new Blob(["﻿", html], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  showToast("Word dosyası indiriliyor.");
+}
+
 /* ---------- Eylemler ---------- */
 document.getElementById("copy-btn").addEventListener("click", async () => {
   const text = preview.dataset.text || "";
@@ -479,15 +532,19 @@ document.getElementById("copy-btn").addEventListener("click", async () => {
 });
 
 document.getElementById("reset-btn").addEventListener("click", () => {
+  savedStates = {};
   initState();
   renderForm();
   generate();
-  showToast("Form temizlendi.");
+  showToast("Tüm formlar temizlendi.");
 });
 
 document.getElementById("print-btn").addEventListener("click", () => {
-  if (!preview.dataset.text) return showToast("Henüz oluşturulmuş bir taslak yok.");
-  window.print();
+  anamnezPrintWindow("Anamnez Taslağı", preview.dataset.text);
+});
+
+document.getElementById("word-btn").addEventListener("click", () => {
+  anamnezDownloadWord("anamnez.doc", "Anamnez Taslağı", preview.dataset.text);
 });
 
 /* Mobil görünüm geçişi (Sorular / Taslak) */
@@ -501,8 +558,11 @@ document.querySelectorAll(".ms-btn").forEach((btn) => {
 });
 
 document.getElementById("template-select").addEventListener("change", (e) => {
-  schema = TEMPLATES[e.target.value] || TEMPLATES.hipertansiyon;
-  initState();
+  savedStates[currentId] = state;                 // mevcut hastalığı sakla
+  currentId = e.target.value;
+  schema = TEMPLATES[currentId] || TEMPLATES.hipertansiyon;
+  if (savedStates[currentId]) state = savedStates[currentId]; // varsa geri yükle
+  else initState();
   renderForm();
   generate();
   updateSubtitle();

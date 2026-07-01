@@ -302,6 +302,8 @@ body {
   background: linear-gradient(180deg, var(--primary), #2dd4bf);
   border-radius: 4px 0 0 4px;
 }
+.disease-heading { margin: 22px 0 10px; font-size: 0.95rem; font-weight: 800; color: var(--primary-700); border-bottom: 2px solid var(--primary); padding-bottom: 4px; letter-spacing: .2px; }
+.disease-heading:first-child { margin-top: 2px; }
 .paper p { margin: 0 0 16px; text-align: justify; }
 .paper p:last-child { margin-bottom: 0; }
 .preview-empty { color: var(--muted); font-style: italic; text-align: left !important; }
