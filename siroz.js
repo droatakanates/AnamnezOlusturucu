@@ -1,22 +1,23 @@
 /* =========================================================================
- * SİROZ / KRONİK KARACİĞER HASTALIĞI ANAMNEZİ
+ * SİROZ / KRONİK KARACİĞER HASTALIĞI ANAMNEZİ (Gastroenteroloji sürümü)
  * schema.js yardımcıları + otomatik Child-Pugh ve MELD/MELD-Na hesaplaması.
+ * Tetkik tarihleri ay/yıl olarak sorgulanır; ilaç dozları barem ile alınır.
  * ====================================================================== */
 
 function sirozNum(v) { const n = parseFloat(String(v).replace(",", ".")); return isNaN(n) ? null : n; }
 
-/* Child-Pugh: bilirubin, albümin, INR, asit, ensefalopati -> {score, cls} | null */
+/* Child-Pugh: bilirubin, albümin, INR, asit, ensefalopati -> {score, cls} | null
+   asit: yok/hafif/orta-ağır ; ensefalopati: yok/evre 1..4 */
 function childPugh(v) {
   const bil = sirozNum(v.bil), alb = sirozNum(v.alb), inr = sirozNum(v.inr);
   if (bil == null || alb == null || inr == null || !v.asit || !v.ensf) return null;
   const pBil = bil < 2 ? 1 : bil <= 3 ? 2 : 3;
   const pAlb = alb > 3.5 ? 1 : alb >= 2.8 ? 2 : 3;
   const pInr = inr < 1.7 ? 1 : inr <= 2.3 ? 2 : 3;
-  const pAsit = v.asit === "yok" ? 1 : v.asit === "hafif/kontrollü" ? 2 : 3;
-  const pEnsf = v.ensf === "yok" ? 1 : v.ensf === "evre 1-2" ? 2 : 3;
+  const pAsit = v.asit === "yok" ? 1 : v.asit === "hafif" ? 2 : 3;
+  const pEnsf = v.ensf === "yok" ? 1 : (v.ensf === "evre 1" || v.ensf === "evre 2") ? 2 : 3;
   const score = pBil + pAlb + pInr + pAsit + pEnsf;
-  const cls = score <= 6 ? "A" : score <= 9 ? "B" : "C";
-  return { score, cls };
+  return { score, cls: score <= 6 ? "A" : score <= 9 ? "B" : "C" };
 }
 
 /* MELD ve MELD-Na: bilirubin, INR, kreatinin (+ sodyum) -> {meld, na} | null */
@@ -35,12 +36,15 @@ function meldScore(v) {
   return { meld, na };
 }
 
-/* Dekompansasyon alt başlığı için semptom-kod bloğu üreticisi */
-function dekompGrup(id, title, symptoms) {
+/* Pure semptom-kod grubu üreticisi (var/yok/sorgulanmalı) */
+function symGrup(id, title, symptoms, noteHeader) {
   return {
     id, title,
-    blocks: [{ id: id + "-kod", type: "symptom-code", noteHeader: title + " —",
-      label: "Her bulguyu kodlayın (bilgi yoksa 'Sorgulanmalı' kalır)", symptoms }]
+    blocks: [{
+      id: id + "-kod", type: "symptom-code",
+      noteHeader: noteHeader || (title + " —"),
+      label: "Her bulguyu kodlayın (bilgi yoksa 'Sorgulanmalı' kalır)", symptoms
+    }]
   };
 }
 
@@ -48,39 +52,561 @@ const SIROZ_SEMA = {
   id: "siroz",
   title: "Siroz / Kronik Karaciğer Hastalığı Anamnezi",
   groups: [
-    /* ---- 1. Başvuru ve Siroz Öyküsü ---- */
+    /* ===== 1. Başvuru Şikayeti ve Kısa Öykü ===== */
     {
-      id: "sir-oyku",
-      title: "Başvuru ve Siroz Öyküsü",
+      id: "sir-basvuru",
+      title: "Başvuru Şikayeti ve Kısa Öykü",
       blocks: [
-        metinBlok("sir-basvuru", "Başvuru nedeni", "Başvuru nedeni",
-          "ör. karında şişlik ve bilinç bulanıklığı", (v) => `Hasta ${v} ile başvurmuş.`),
         {
-          id: "sir-tani",
-          label: "Tanı zamanı ve nasıl konduğu",
-          default: "skip",
+          id: "sir-basvuru-detay", label: "Başvuru bilgileri", default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
               fields: [
-                { name: "zaman", type: "text", label: "Tanı zamanı", placeholder: "ör. 2019 yılında / 4 yıl önce" },
-                { name: "nasil", type: "text", label: "Nasıl konduğu", placeholder: "ör. dekompansasyon (asit) ile / insidental görüntülemede" }
+                { name: "tarih", type: "text", label: "Başvuru tarihi", placeholder: "ör. 05.06.2026" },
+                { name: "yer", type: "text", label: "Başvuru yeri", placeholder: "ör. acil servise / dahiliye polikliniğine" },
+                { name: "sikayet", type: "text", label: "Ana şikayetler", placeholder: "ör. karında şişlik ve bilinç bulanıklığı" }
               ],
-              build: (v) =>
-                `${buyukHarfBasla(v.zaman || "…")}` + (v.nasil ? ` ${v.nasil}` : "") +
-                " kronik karaciğer hastalığı / siroz tanısı almış."
-            },
-            SKIP
+              build: (v) => {
+                let s = "Hasta";
+                if (v.tarih) s += ` ${v.tarih} tarihinde`;
+                if (v.yer) s += ` ${v.yer}`;
+                return s + ` ${v.sikayet || "…"} şikayetleriyle başvurmuş.`;
+              }
+            }, SKIP
           ]
         },
-        varYokDetay("sir-takip-onceki", "Önceki düzenli takip var mı?",
-          [{ name: "yer", type: "text", label: "Takip yeri", placeholder: "ör. … gastroenteroloji polikliniği" }],
-          (v) => `Tanıdan bu yana ${v.yer || "…"} takibindeymiş.`,
-          "Düzenli takibi olmamış / net öğrenilemedi."),
         {
-          id: "sir-skor",
-          label: "Child-Pugh / MELD (otomatik hesaplama)",
-          default: "skip",
+          id: "sir-basvuru-seyir", label: "Şikayetlerin başlangıcı ve seyri", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "zaman", type: "text", label: "Başlangıç zamanı", placeholder: "ör. yaklaşık 1 hafta önce" },
+                { name: "sekil", type: "select", label: "Başlangıç şekli", options: ["ani", "sinsi", "dalgalı", "bilinmiyor"] },
+                { name: "seyir", type: "select", label: "Seyir", options: ["artıyor", "azalıyor", "stabil", "tekrarlayıcı"] }
+              ],
+              build: (v) => {
+                let s = "Şikayetleri";
+                if (v.zaman) s += ` ${v.zaman}`;
+                s += " başlamış";
+                if (v.sekil) s += `, başlangıcı ${v.sekil}`;
+                if (v.seyir) s += ` ve seyri ${v.seyir}`;
+                return s + ".";
+              }
+            }, SKIP
+          ]
+        },
+        secimBlok("sir-artiran", "Artıran-azaltan faktörler", ["yok", "var", "bilinmiyor"],
+          (v) => `Şikayetleri artıran-azaltan faktör ${v === "var" ? "tarifleniyor" : v === "yok" ? "tariflenmiyor" : "bilinmiyor"}.`,
+          "Durum"),
+        {
+          id: "sir-on-degerlendirme", label: "Başvurunun ön değerlendirmesi", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Belirt",
+              fields: [{
+                name: "sec", type: "multi", label: "Ön planda değerlendirilenler",
+                options: ["hepatik ensefalopati", "enfeksiyon", "GİS kanama", "elektrolit bozukluğu", "nörolojik olay", "ilaç yan etkisi", "diğer nedenler"]
+              }],
+              build: (v) => `Mevcut başvuru, ön planda ${v.sec && v.sec.length ? joinVe(v.sec) : "…"} açısından değerlendirildi.`
+            }, SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ===== Eşlik eden semptomlar ===== */
+    symGrup("sir-eslik", "Eşlik Eden Semptomlar", [
+      { id: "halsizlik", label: "Halsizlik" },
+      { id: "bas-donmesi", label: "Baş dönmesi" },
+      { id: "yuruyememe", label: "Yürüyememe / dengesizlik" },
+      { id: "bilinc", label: "Bilinç bulanıklığı" },
+      { id: "uyku-ritim", label: "Uyku-uyanıklık ritminde bozulma" },
+      { id: "konfuzyon", label: "Konfüzyon / unutkanlık" },
+      { id: "asteriksis", label: "Asteriksis" },
+      { id: "ates-enf", label: "Ateş / enfeksiyon bulgusu" },
+      { id: "hematemez", label: "Hematemez" },
+      { id: "melena", label: "Melena" },
+      { id: "hematokezya", label: "Hematokezya" },
+      { id: "kabizlik", label: "Kabızlık" },
+      { id: "ishal", label: "İshal" },
+      { id: "kusma", label: "Kusma" },
+      { id: "karin-agri", label: "Karın ağrısı" },
+      { id: "karin-sislik", label: "Karında şişlik" },
+      { id: "bacak-sislik", label: "Bacaklarda şişlik" }
+    ]),
+
+    /* ===== 2. Siroz Tanısının Öyküsü ===== */
+    {
+      id: "sir-tani",
+      title: "Siroz Tanısının Öyküsü",
+      blocks: [
+        {
+          id: "sir-tani-detay", label: "Tanı öyküsü", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "yil", type: "text", label: "Tanı yılı", placeholder: "ör. 2019" },
+                { name: "yer", type: "text", label: "Tanı yeri", placeholder: "ör. … Üniversitesi Hastanesi" },
+                { name: "sikayet", type: "multi", label: "Tanı sırasındaki şikayetler", options: ["iştahsızlık", "kilo kaybı", "sarılık", "karında şişlik", "ödem", "halsizlik", "kas krampları"] },
+                { name: "bulgu", type: "text", label: "Saptanan lab/görüntüleme bulgusu", placeholder: "ör. trombositopeni, USG'de nodüler karaciğer" },
+                { name: "merkez", type: "text", label: "Takipli olduğu merkez/bölüm", placeholder: "ör. gastroenteroloji" }
+              ],
+              build: (v) => {
+                let s = `Hastaya ${v.yil || "…"} yılında`;
+                if (v.sikayet && v.sikayet.length) s += ` ${joinVe(v.sikayet)} şikayetleriyle başvurduğu`;
+                s += ` ${v.yer || "…"} merkezinde yapılan değerlendirmeler sonucunda siroz tanısı konulmuş.`;
+                if (v.bulgu) s += ` Tanı sürecinde ${v.bulgu} saptanmış.`;
+                if (v.merkez) s += ` Hasta ${v.merkez} bölümü tarafından takipliymiş.`;
+                return s;
+              }
+            }, SKIP
+          ]
+        },
+        durumBlok("sir-biyopsi", "Karaciğer biyopsisi yapıldı mı?", [
+          { key: "yes", label: "Yapıldı", fields: [{ name: "sonuc", type: "text", label: "Sonuç", placeholder: "ör. evre 4 fibrozis" }], build: (v) => `Karaciğer biyopsisi yapılmış${v.sonuc ? ` (${v.sonuc})` : ""}.` },
+          { key: "no", label: "Yapılmadı", build: () => "Karaciğer biyopsisi yapılmamış." },
+          { key: "bil", label: "Bilinmiyor", build: () => "Karaciğer biyopsisi yapılıp yapılmadığı bilinmiyor." }
+        ]),
+        metinBlok("sir-goruntuleme", "Önceki USG / BT / MR bulguları", "Bulgular",
+          "ör. nodüler karaciğer, splenomegali, portal ven açık",
+          (v) => `Önceki görüntülemelerde ${v} saptanmış.`)
+      ]
+    },
+
+    /* ===== 3. Siroz Etiyolojisi — Genel ===== */
+    {
+      id: "sir-etiyoloji",
+      title: "Siroz Etiyolojisi",
+      blocks: [
+        {
+          id: "sir-viral", label: "Viral hepatit belirteçleri", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Belirt",
+              fields: [
+                { name: "hbv", type: "select", label: "HBV", options: ["bilinmiyor", "negatif", "pozitif"] },
+                { name: "hcv", type: "select", label: "HCV", options: ["bilinmiyor", "negatif", "pozitif"] },
+                { name: "hdv", type: "select", label: "HDV", options: ["bilinmiyor", "negatif", "pozitif"] },
+                { name: "hiv", type: "select", label: "HIV", options: ["bilinmiyor", "negatif", "pozitif"] }
+              ],
+              build: (v) => `Viral belirteçlerden HBV ${v.hbv || "bilinmiyor"}, HCV ${v.hcv || "bilinmiyor"}, HDV ${v.hdv || "bilinmiyor"}, HIV ${v.hiv || "bilinmiyor"} olarak öğrenilmiş.`
+            }, SKIP
+          ]
+        },
+        metinBlok("sir-demir", "Hemokromatozis / demir yükü değerlendirmesi", "Değerler",
+          "ör. ferritin, transferrin satürasyonu, HFE",
+          (v) => `Demir yükü açısından ${v} değerlendirilmiş.`),
+        secimBlok("sir-herediter", "Wilson / alfa-1 antitripsin / ilaç-toksin maruziyeti",
+          ["sorgulanmalı", "dışlanmış", "bilinmiyor"],
+          (v) => `Wilson hastalığı, alfa-1 antitripsin eksikliği ve ilaç/toksin maruziyeti açısından durum: ${v}.`, "Durum"),
+        secimBlok("sir-aile-kc", "Ailede karaciğer hastalığı", ["yok", "var", "bilinmiyor"],
+          (v) => `Ailede karaciğer hastalığı öyküsü ${v}.`, "Durum"),
+        secimBlok("sir-etiyoloji-ozet", "Öne çıkan etiyoloji",
+          ["alkol ilişkili karaciğer hastalığı", "viral hepatit (HBV/HCV)", "MASLD/MASH",
+            "otoimmün hepatit", "PBC/PSC", "herediter/metabolik neden", "nedeni bilinmeyen (kriptojenik)", "Diğer"],
+          (v) => `Hastanın siroz etyolojisi mevcut bilgilerle ${v} ile ilişkili olarak değerlendirilmiş; ancak viral hepatit, metabolik karaciğer hastalığı, otoimmün/kolestatik hastalıklar ve herediter nedenlere yönelik dışlama süreci ayrıca sorgulanmalıdır.`,
+          "Etiyoloji")
+      ]
+    },
+    symGrup("sir-metabolik", "Metabolik Risk", [
+      { id: "obezite", label: "Obezite" },
+      { id: "dm", label: "Tip 2 DM" },
+      { id: "dislipidemi", label: "Dislipidemi" },
+      { id: "masld", label: "MASLD/MASH düşündüren öykü" }
+    ]),
+    symGrup("sir-otoimmun", "Otoimmün / Kolestatik Hastalık", [
+      { id: "aih", label: "Otoimmün hepatit" },
+      { id: "pbc-psc", label: "PBC / PSC" }
+    ]),
+
+    /* ===== 4.1 Hepatik Ensefalopati ===== */
+    {
+      id: "sir-he",
+      title: "Hepatik Ensefalopati — Öykü",
+      blocks: [
+        varYokDetay("sir-he-atak", "Daha önce HE atağı var mı?",
+          [
+            { name: "tarih", type: "text", label: "Atak tarihi (ay/yıl)", placeholder: "ör. 03/2025" },
+            { name: "sekil", type: "multi", label: "Başvuru şekli", options: ["bilinç bulanıklığı", "uykuya meyil", "konfüzyon", "dengesizlik", "kişilik değişikliği", "asteriksis", "koma"] },
+            { name: "yatis", type: "select", label: "Hastane yatışı", options: ["olmuş", "olmamış"] }
+          ],
+          (v) => `Daha önce hepatik ensefalopati atağı öyküsü mevcut${v.tarih ? ` (${v.tarih})` : ""}` +
+            (v.sekil && v.sekil.length ? `; ${joinVe(v.sekil)} şeklinde başvurmuş` : "") +
+            `; bu nedenle hastane yatışı ${v.yatis || "…"}.`,
+          "Daha önce hepatik ensefalopati atağı tariflenmiyor."),
+        metinBlok("sir-he-diski", "Güncel günlük dışkılama sayısı", "Sayı", "ör. 3",
+          (v) => `Güncel günlük dışkılama sayısı ${v} kez/gün olarak tarifleniyor.`),
+        secimBlok("sir-he-laktuloz", "Laktüloz kullanımı", ["düzenli", "düzensiz", "kullanmıyor"],
+          (v) => `Laktülozu ${v} kullanıyormuş.`, "Kullanım"),
+        secimBlok("sir-he-rifaksimin", "Rifaksimin kullanımı", ["düzenli", "düzensiz", "kullanmıyor"],
+          (v) => `Rifaksimini ${v} kullanıyormuş.`, "Kullanım"),
+        {
+          id: "sir-he-ozet", label: "HE öyküsü özeti", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "uyum", type: "select", label: "HE ile uyum", options: ["uyumlu", "kısmen uyumlu", "uyumlu değil"] },
+                { name: "tetik", type: "text", label: "Öne çıkan tetikleyici(ler)", placeholder: "ör. kabızlık ve enfeksiyon" }
+              ],
+              build: (v) => `Hastanın öyküsü hepatik ensefalopati açısından ${v.uyum || "…"}` +
+                (v.tetik ? `; olası tetikleyiciler arasında ${v.tetik} öne çıkmaktadır` : "") + "."
+            }, SKIP
+          ]
+        }
+      ]
+    },
+    symGrup("sir-he-tetik", "HE Tetikleyicileri", [
+      { id: "t-kabizlik", label: "Kabızlık" },
+      { id: "t-gis", label: "GİS kanama" },
+      { id: "t-enf", label: "Enfeksiyon" },
+      { id: "t-dehidr", label: "Dehidratasyon" },
+      { id: "t-elektrolit", label: "Hipokalemi / hiponatremi / metabolik bozukluk" },
+      { id: "t-sedatif", label: "Sedatif/benzodiazepin/antipsikotik/opioid kullanımı" },
+      { id: "t-uyumsuz", label: "Laktüloz/rifaksimin uyumsuzluğu" },
+      { id: "t-protein", label: "Aşırı protein kısıtlaması" },
+      { id: "t-bilinmeyen", label: "Bilinmeyen tetikleyici" }
+    ]),
+
+    /* ===== 4.2 Assit ve SBP ===== */
+    {
+      id: "sir-assit",
+      title: "Assit ve Spontan Bakteriyel Peritonit — Öykü",
+      blocks: [
+        varYokDetay("sir-assit-oyku", "Assit öyküsü var mı?",
+          [{ name: "ilk", type: "text", label: "İlk saptanma (ay/yıl)", placeholder: "ör. 06/2023" }],
+          (v) => `Assit öyküsü mevcut${v.ilk ? ` (ilk ${v.ilk} tarihinde saptanmış)` : ""}.`,
+          "Assit öyküsü yok."),
+        varYok("sir-parasentez", "Parasentez öyküsü var mı?", "Parasentez öyküsü mevcut.", "Parasentez öyküsü yok."),
+        varYok("sir-sbp", "SBP öyküsü var mı?", "Spontan bakteriyel peritonit öyküsü mevcut.", "Spontan bakteriyel peritonit öyküsü yok."),
+        {
+          id: "sir-diuretik", label: "Diüretik kullanımı", default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "ilac", type: "multi", label: "İlaç(lar)", options: ["spironolakton", "furosemid"] },
+                { name: "uyum", type: "select", label: "Uyum", options: ["düzenli", "düzensiz"] }
+              ],
+              build: (v) => `Diüretik olarak ${v.ilac && v.ilac.length ? joinVe(v.ilac) : "…"} kullanıyormuş; uyumu ${v.uyum || "…"}.`
+            },
+            { key: "no", label: "Yok", build: () => "Diüretik kullanmıyormuş." }, SKIP
+          ]
+        },
+        secimBlok("sir-tuz", "Tuz kısıtlaması uyumu", ["iyi", "kötü", "bilinmiyor"],
+          (v) => `Tuz kısıtlamasına uyumu ${v}.`, "Uyum")
+      ]
+    },
+    symGrup("sir-assit-son", "Assit — Son Dönem Bulguları", [
+      { id: "sislik-artis", label: "Son dönemde karında şişlik artışı" },
+      { id: "ates", label: "Ateş" },
+      { id: "karin-agrisi", label: "Karın ağrısı" },
+      { id: "ensef-artis", label: "Ensefalopati artışı" }
+    ]),
+
+    /* ===== 4.3 Varis ve GİS Kanama ===== */
+    {
+      id: "sir-varis",
+      title: "Varis ve GİS Kanama — Öykü",
+      blocks: [
+        varYokDetay("sir-endoskopi", "Daha önce endoskopi yapıldı mı?",
+          [
+            { name: "tarih", type: "text", label: "Tarih (ay/yıl)", placeholder: "ör. 03/2025" },
+            { name: "bulgu", type: "multi", label: "Bulgular", options: ["özofagus varisi", "gastrik varis", "portal hipertansif gastropati", "bulgu yok"] },
+            { name: "derece", type: "text", label: "Varis derecesi", placeholder: "ör. grade 2" }
+          ],
+          (v) => `Son üst GİS endoskopisi ${v.tarih || "…"} tarihinde yapılmış` +
+            (v.bulgu && v.bulgu.length ? `; ${joinVe(v.bulgu)} saptanmış` : "") +
+            (v.derece ? ` (varis derecesi: ${v.derece})` : "") + ".",
+          "Daha önce endoskopi yapılmamış / bilinmiyor.", "Yapıldı", "Yapılmadı"),
+        {
+          id: "sir-nsbb", label: "Non-selektif beta bloker kullanımı", default: "skip",
+          modes: [
+            {
+              key: "yes", label: "Var",
+              fields: [
+                { name: "ilac", type: "select", label: "İlaç", options: ["karvedilol", "propranolol", "nadolol"] },
+                { name: "uyum", type: "select", label: "Uyum", options: ["düzenli", "düzensiz"] }
+              ],
+              build: (v) => `Varis profilaksisi için ${v.ilac || "NSBB"} kullanıyormuş; uyumu ${v.uyum || "…"} (doz için medikal tedavi bölümüne bakınız).`
+            },
+            { key: "no", label: "Yok", build: () => "Non-selektif beta bloker kullanmıyormuş." }, SKIP
+          ]
+        },
+        metinBlok("sir-planli-endoskopi", "Planlı endoskopi tarihi (ay/yıl)", "Tarih", "ör. 09/2026",
+          (v) => `Planlı kontrol endoskopisi ${v} olarak planlanmış.`)
+      ]
+    },
+    symGrup("sir-gis-bulgu", "Varis / GİS Kanama Bulguları", [
+      { id: "ust-gis", label: "Üst GİS kanama öyküsü" },
+      { id: "hematemez", label: "Hematemez" },
+      { id: "melena", label: "Melena" },
+      { id: "hematokezya", label: "Hematokezya" },
+      { id: "ligasyon", label: "Band ligasyonu / skleroterapi öyküsü" }
+    ]),
+
+    /* ===== 4.4 Sarılık, Kolestaz, Kaşıntı ===== */
+    symGrup("sir-sarilik", "Sarılık / Kolestaz", [
+      { id: "sarilik", label: "Sarılık" },
+      { id: "ikter", label: "Skleralarda ikter" },
+      { id: "kasinti", label: "Kaşıntı" },
+      { id: "koyu-idrar", label: "Koyu idrar" },
+      { id: "acik-diski", label: "Açık renkli dışkı" },
+      { id: "bilirubin-artis", label: "Son dönemde bilirubin artışı" }
+    ]),
+    {
+      id: "sir-safra",
+      title: "Safra Yolu ve Kolanjit — Öykü",
+      blocks: [
+        secimBlok("sir-safra-yolu", "Safra yolu patolojisi / taş öyküsü", ["yok", "var", "bilinmiyor"],
+          (v) => `Safra yolu patolojisi / taş öyküsü ${v}.`, "Durum")
+      ]
+    },
+    symGrup("sir-kolanjit", "Kolanjit Bulguları", [
+      { id: "ates", label: "Ateş" },
+      { id: "sag-ust-agri", label: "Sağ üst kadran ağrısı" },
+      { id: "titreme", label: "Titreme" }
+    ]),
+
+    /* ===== 4.5 HCC Taraması ===== */
+    {
+      id: "sir-hcc",
+      title: "Hepatosellüler Karsinom Taraması",
+      blocks: [
+        metinBlok("sir-hcc-usg", "Son karaciğer USG tarihi (ay/yıl)", "Tarih", "ör. 02/2025",
+          (v) => `Son karaciğer ultrasonografisi ${v} tarihinde yapılmış.`),
+        {
+          id: "sir-hcc-afp", label: "Son AFP tarihi ve değeri", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "tarih", type: "text", label: "Tarih (ay/yıl)", placeholder: "ör. 02/2025" },
+                { name: "deger", type: "text", label: "AFP değeri", placeholder: "ör. 4 ng/mL" }
+              ],
+              build: (v) => `Son AFP değeri ${v.tarih || "…"} tarihinde ${v.deger || "…"} olarak sonuçlanmış.`
+            }, SKIP
+          ]
+        },
+        secimBlok("sir-hcc-lezyon", "USG/BT/MR'da fokal lezyon", ["yok", "var", "bilinmiyor"],
+          (v) => `Görüntülemede fokal lezyon ${v}.`, "Durum"),
+        secimBlok("sir-hcc-duzen", "HCC taraması düzenli mi?", ["evet", "hayır", "bilinmiyor"],
+          (v) => `HCC taramasının düzenli olup olmadığı: ${v}.`, "Durum"),
+        varYok("sir-hcc-eksik", "Eksik tetkik / kaçırılan randevu var mı?",
+          "Eksik tetkik veya kaçırılan randevu öyküsü mevcut.", "Eksik tetkik veya kaçırılan randevu tariflenmiyor.")
+      ]
+    },
+
+    /* ===== 5. Portal Hipertansiyon ve KKH Bulguları ===== */
+    symGrup("sir-portal", "Portal Hipertansiyon ve Kronik Karaciğer Hastalığı Bulguları", [
+      { id: "splenomegali", label: "Splenomegali" },
+      { id: "trombositopeni", label: "Trombositopeni" },
+      { id: "caput", label: "Caput medusae / abdominal kollateraller" },
+      { id: "spider", label: "Spider anjiom" },
+      { id: "palmar", label: "Palmar eritem" },
+      { id: "jinekomasti", label: "Jinekomasti" },
+      { id: "testis", label: "Testiküler atrofi / libido azalması" },
+      { id: "sarkopeni", label: "Kas kaybı / sarkopeni" },
+      { id: "kilo-kaybi", label: "Kilo kaybı" },
+      { id: "kramp", label: "Kas krampları" },
+      { id: "malnutrisyon", label: "Malnütrisyon bulguları" }
+    ]),
+
+    /* ===== 6. İlaç Öyküsü ve Tedavi Uyumu (doz barem ile) ===== */
+    {
+      id: "sir-medikal",
+      title: "İlaç Öyküsü ve Tedavi Uyumu",
+      blocks: [
+        {
+          id: "sir-medikal-doz", label: "Medikal tedavi (doz ile)", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "laktuloz", type: "text", label: "Laktüloz", placeholder: "barem: 3x30 mL, günde 2-3 yumuşak dışkı olacak şekilde titre" },
+                { name: "rifaksimin", type: "text", label: "Rifaksimin", placeholder: "barem: 550 mg 2x1" },
+                { name: "nsbb", type: "text", label: "NSBB (karvedilol/propranolol/nadolol)", placeholder: "barem: karvedilol 6.25 mg 2x1 / propranolol 20-40 mg 2x1 / nadolol 20-40 mg 1x1" },
+                { name: "diuretik", type: "text", label: "Diüretik (spironolakton/furosemid)", placeholder: "barem: spironolakton 100 mg + furosemid 40 mg (100:40 oranı)" },
+                { name: "ppi", type: "text", label: "PPI", placeholder: "barem: pantoprazol 40 mg 1x1" },
+                { name: "vitamin", type: "text", label: "Vitamin destekleri", placeholder: "ör. tiamin, folik asit, D vitamini" },
+                { name: "psikiyatri", type: "text", label: "Psikiyatrik ilaçlar", placeholder: "ör. ketiapin 25 mg gece" },
+                { name: "parasetamol", type: "text", label: "Parasetamol", placeholder: "barem: ≤2 g/gün" }
+              ],
+              build: (v) => {
+                const L = [
+                  ["laktüloz", v.laktuloz], ["rifaksimin", v.rifaksimin], ["NSBB", v.nsbb],
+                  ["diüretik", v.diuretik], ["PPI", v.ppi], ["vitamin desteği", v.vitamin],
+                  ["psikiyatrik ilaç", v.psikiyatri], ["parasetamol", v.parasetamol]
+                ].filter((x) => x[1] != null && String(x[1]).trim() !== "").map((x) => `${x[0]} ${x[1]}`);
+                return L.length ? `Güncel medikal tedavisinde ${joinVe(L)} mevcut.` : "Güncel medikal tedavi bilgisi net öğrenilemedi.";
+              }
+            }, SKIP
+          ]
+        },
+        {
+          id: "sir-uyum", label: "Tedavi uyumu değerlendirmesi", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "uyum", type: "select", label: "Laktüloz/rifaksimin/NSBB/diüretik uyumu", options: ["düzenli", "düzensiz", "kısmen", "net öğrenilemedi"] },
+                { name: "tetik", type: "select", label: "Uyumsuzluk tetikleyici mi?", options: ["mevcut tabloyu tetiklemiş olabilir", "tetikleyici olarak düşünülmedi"] }
+              ],
+              build: (v) => `Siroza yönelik önerilen tedavilere (laktüloz/rifaksimin/NSBB/diüretik) uyumu ${v.uyum || "…"} olarak değerlendirilmiş; ilaç uyumsuzluğu ${v.tetik || "…"}.`
+            }, SKIP
+          ]
+        }
+      ]
+    },
+    symGrup("sir-ilac-diger", "Diğer İlaç / Madde Kullanımı", [
+      { id: "benzo", label: "Benzodiazepin / sedatif kullanımı" },
+      { id: "nsaii", label: "NSAİİ kullanımı" },
+      { id: "bitkisel", label: "Bitkisel ürün / takviye" },
+      { id: "antibiyotik", label: "Antibiyotik kullanımı" }
+    ]),
+
+    /* ===== 7. Enfeksiyon ve Tetikleyici Sorgusu ===== */
+    symGrup("sir-enfeksiyon", "Enfeksiyon ve Tetikleyici Sorgusu", [
+      { id: "ates", label: "Ateş" },
+      { id: "solunum", label: "Öksürük / balgam / dispne" },
+      { id: "dizuri", label: "Dizüri / sık idrara çıkma" },
+      { id: "karin-agri", label: "Karın ağrısı" },
+      { id: "diyare", label: "Diyare" },
+      { id: "cilt-enf", label: "Cilt-yumuşak doku enfeksiyonu bulgusu" },
+      { id: "gis-kanama", label: "Son günlerde GİS kanama" },
+      { id: "kabizlik", label: "Kabızlık" },
+      { id: "dehidr", label: "Dehidratasyon / az oral alım" },
+      { id: "yeni-ilac", label: "Yeni başlanan ilaç" },
+      { id: "alkol-relaps", label: "Alkol relapsı" },
+      { id: "travma", label: "Travma / düşme / nörolojik semptom" }
+    ]),
+    {
+      id: "sir-enf-ozet",
+      title: "Enfeksiyon / Tetikleyici — Özet",
+      blocks: [
+        metinBlok("sir-enf-ozet-metin", "Tetikleyici değerlendirme özeti", "Özet",
+          "ör. idrar yolu enfeksiyonu ve kabızlık",
+          (v) => `Akut dekompansasyonu tetikleyebilecek enfeksiyon, kanama, kabızlık, elektrolit bozukluğu, ilaç kullanımı ve alkol relapsı açısından öyküde ${v} saptandı.`)
+      ]
+    },
+
+    /* ===== 8. Alkol ve Madde Kullanımı ===== */
+    {
+      id: "sir-alkol",
+      title: "Alkol ve Madde Kullanımı",
+      blocks: [
+        {
+          id: "sir-alkol-detay", label: "Alkol / madde / sigara öyküsü", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "sure", type: "text", label: "Kullanım süresi", placeholder: "ör. 20 yıl" },
+                { name: "miktar", type: "text", label: "Günlük/haftalık miktar", placeholder: "ör. günde 1 şişe şarap" },
+                { name: "tur", type: "text", label: "İçki türü", placeholder: "ör. şarap / rakı" },
+                { name: "son", type: "text", label: "Son kullanım", placeholder: "ör. 2 yıl önce / 03/2024" },
+                { name: "birakma", type: "select", label: "Bırakma girişimi", options: ["var", "yok", "bilinmiyor"] },
+                { name: "amatem", type: "select", label: "AMATEM / psikiyatri takibi", options: ["var", "yok"] },
+                { name: "yoksunluk", type: "select", label: "Yoksunluk öyküsü", options: ["var", "yok"] },
+                { name: "dt", type: "select", label: "Deliryum tremens / nöbet", options: ["var", "yok"] },
+                { name: "madde", type: "select", label: "Madde kullanımı", options: ["yok", "var"] },
+                { name: "sigara", type: "text", label: "Sigara (paket-yıl)", placeholder: "ör. 20 paket-yıl / yok" }
+              ],
+              build: (v) => {
+                const p = [];
+                if (v.sure || v.miktar || v.tur)
+                  p.push(`Hastanın ${[v.sure, "süreyle", v.miktar, v.tur, "alkol"].filter(Boolean).join(" ")} kullanım öyküsü mevcut`);
+                if (v.son) p.push(`son kullanımı ${v.son}`);
+                if (v.birakma) p.push(`bırakma girişimi ${v.birakma}`);
+                if (v.amatem) p.push(`AMATEM/psikiyatri takibi ${v.amatem}`);
+                if (v.yoksunluk) p.push(`yoksunluk öyküsü ${v.yoksunluk}`);
+                if (v.dt) p.push(`deliryum tremens/nöbet ${v.dt}`);
+                let s = p.length ? buyukHarfBasla(p.join("; ")) + "." : "";
+                const ek = [];
+                if (v.madde) ek.push(`madde kullanımı ${v.madde}`);
+                if (v.sigara) ek.push(`sigara ${v.sigara}`);
+                if (ek.length) s += (s ? " " : "") + buyukHarfBasla(ek.join(", ")) + ".";
+                return s || "Alkol ve madde kullanım bilgisi net öğrenilemedi.";
+              }
+            }, SKIP
+          ]
+        }
+      ]
+    },
+
+    /* ===== 9. Beslenme, Fonksiyonel Durum ve Sosyal Öykü ===== */
+    {
+      id: "sir-beslenme",
+      title: "Beslenme, Fonksiyonel Durum ve Sosyal Öykü",
+      blocks: [
+        {
+          id: "sir-beslenme-detay", label: "Beslenme durumu", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "kilo", type: "text", label: "Son 6 ayda kilo kaybı", placeholder: "ör. 6 kg / yok" },
+                { name: "istah", type: "select", label: "İştah", options: ["iyi", "azalmış"] },
+                { name: "protein", type: "select", label: "Günlük protein alımı", options: ["yeterli", "yetersiz", "bilinmiyor"] },
+                { name: "tuz", type: "select", label: "Tuz kısıtlaması", options: ["uyuyor", "uymuyor", "bilinmiyor"] }
+              ],
+              build: (v) => {
+                const p = [];
+                if (v.kilo) p.push(`son 6 ayda kilo kaybı: ${v.kilo}`);
+                if (v.istah) p.push(`iştah ${v.istah}`);
+                if (v.protein) p.push(`günlük protein alımı ${v.protein}`);
+                if (v.tuz) p.push(`tuz kısıtlamasına ${v.tuz}`);
+                return p.length ? buyukHarfBasla(p.join(", ")) + "." : "Beslenme bilgisi net öğrenilemedi.";
+              }
+            }, SKIP
+          ]
+        },
+        {
+          id: "sir-fonksiyonel", label: "Fonksiyonel ve sosyal durum", default: "skip",
+          modes: [
+            {
+              key: "fill", label: "Doldur",
+              fields: [
+                { name: "aktivite", type: "select", label: "Günlük aktivite düzeyi", options: ["bağımsız", "kısmen bağımlı", "bağımlı"] },
+                { name: "dusme", type: "select", label: "Düşme öyküsü", options: ["yok", "var"] },
+                { name: "yurume", type: "select", label: "Yürüyememe / dengesizlik", options: ["yok", "var"] },
+                { name: "evbakim", type: "select", label: "Evde bakım desteği", options: ["var", "yok"] },
+                { name: "sosyal", type: "select", label: "Sosyal destek", options: ["iyi", "kısıtlı", "bilinmiyor"] }
+              ],
+              build: (v) => {
+                const p = [];
+                if (v.aktivite) p.push(`günlük aktivite düzeyi ${v.aktivite}`);
+                if (v.dusme) p.push(`düşme öyküsü ${v.dusme}`);
+                if (v.yurume) p.push(`yürüyememe/dengesizlik ${v.yurume}`);
+                if (v.evbakim) p.push(`evde bakım desteği ${v.evbakim}`);
+                if (v.sosyal) p.push(`sosyal destek ${v.sosyal}`);
+                return p.length ? buyukHarfBasla(p.join(", ")) + "." : "Fonksiyonel/sosyal durum net öğrenilemedi.";
+              }
+            }, SKIP
+          ]
+        },
+        metinBlok("sir-beslenme-yorum", "Ensefalopati / sarkopeni açısından yorum", "Yorum",
+          "ör. sarkopeni ve yetersiz protein alımı HE riskini artırıyor",
+          (v) => `Ensefalopati ve sarkopeni açısından değerlendirildiğinde ${v}.`)
+      ]
+    },
+
+    /* ===== 10. Özgeçmiş, Soygeçmiş ===== */
+    symGrup("sir-ozgecmis", "Özgeçmiş / Soygeçmiş", [
+      { id: "malignite", label: "Malignite öyküsü" },
+      { id: "cerrahi", label: "Cerrahi öykü" },
+      { id: "aile-kc", label: "Ailede karaciğer hastalığı" },
+      { id: "aile-herediter", label: "Ailede hemokromatozis / viral hepatit / erken yaşta siroz" }
+    ]),
+    {
+      id: "sir-skor",
+      title: "Skorlama ve Klinik Durum",
+      blocks: [
+        {
+          id: "sir-skor-hesap", label: "Child-Pugh / MELD-Na (otomatik) ve klinik evreleme", default: "skip",
           modes: [
             {
               key: "fill", label: "Doldur",
@@ -90,246 +616,25 @@ const SIROZ_SEMA = {
                 { name: "inr", type: "text", label: "INR", placeholder: "ör. 1.8" },
                 { name: "kreatinin", type: "text", label: "Kreatinin (mg/dL)", placeholder: "ör. 1.3" },
                 { name: "sodyum", type: "text", label: "Sodyum (mmol/L)", placeholder: "ör. 131" },
-                { name: "asit", type: "select", label: "Asit", options: ["yok", "hafif/kontrollü", "orta-şiddetli"] },
-                { name: "ensf", type: "select", label: "Ensefalopati", options: ["yok", "evre 1-2", "evre 3-4"] }
+                { name: "asit", type: "select", label: "Assit", options: ["yok", "hafif", "orta-ağır"] },
+                { name: "ensf", type: "select", label: "Ensefalopati", options: ["yok", "evre 1", "evre 2", "evre 3", "evre 4"] }
               ],
               build: (v) => {
                 const parts = [];
                 const cp = childPugh(v);
-                if (cp) parts.push(`Child-Pugh skoru ${cp.score} puan (sınıf ${cp.cls})`);
+                if (cp) parts.push(`Child-Pugh ${cp.score} puan (sınıf ${cp.cls})`);
                 const m = meldScore(v);
                 if (m) parts.push(`MELD ${m.meld}${m.na != null ? `, MELD-Na ${m.na}` : ""}`);
-                return parts.length
-                  ? "Hesaplanan " + parts.join("; ") + " olarak değerlendirilmiştir."
-                  : "Child-Pugh/MELD hesaplaması için bilirubin, albümin, INR, kreatinin, sodyum ve asit/ensefalopati derecesi sorgulanmalı.";
+                let s = parts.length ? "Hesaplanan " + parts.join("; ") + "." : "";
+                const ek = [];
+                if (v.ensf) ek.push(`ensefalopati ${v.ensf === "yok" ? "yok" : v.ensf}`);
+                if (v.asit) ek.push(`assit ${v.asit}`);
+                if (ek.length) s += (s ? " " : "") + buyukHarfBasla(ek.join(", ")) + ".";
+                return s || "Child-Pugh/MELD hesaplaması için bilirubin, albümin, INR, kreatinin, sodyum ve assit/ensefalopati derecesi sorgulanmalı.";
               }
-            },
-            SKIP
-          ]
-        },
-        metinBlok("sir-yatis", "Önceki yatış ve dekompansasyon öyküsü", "Öykü",
-          "ör. 2023'te asit ve HE nedeniyle iki kez yatış",
-          (v) => `Önceki yatış ve dekompansasyon öyküsünde ${v} mevcut.`)
-      ]
-    },
-
-    /* ---- 2. Etiyoloji ---- */
-    {
-      id: "sir-etiyoloji",
-      title: "Etiyolojiye Yönelik Değerlendirme",
-      blocks: [
-        secimBlok("sir-etiyoloji-sec", "Düşünülen / bilinen etiyoloji",
-          ["viral hepatit (HBV/HCV)", "alkol ilişkili karaciğer hastalığı",
-            "metabolik disfonksiyon ilişkili steatotik karaciğer hastalığı (MASLD)",
-            "otoimmün hepatit", "primer biliyer kolanjit", "primer sklerozan kolanjit",
-            "Wilson hastalığı", "hemokromatozis", "ilaç/toksin ilişkili",
-            "nedeni bilinmeyen (kriptojenik)", "Diğer"],
-          (v) => `Etiyolojik açıdan mevcut bilgilerle ${v} ön planda değerlendirilmektedir.`, "Etiyoloji"),
-        metinBlok("sir-etiyoloji-destek", "Etiyolojiyi destekleyen öykü/bulgular", "Açıklama",
-          "ör. uzun süreli alkol kullanımı, HBsAg pozitifliği",
-          (v) => `Bu değerlendirmeyi destekleyen öyküde ${v} mevcut.`)
-      ]
-    },
-
-    /* ---- 3. Laboratuvar, Görüntüleme, Endoskopi ---- */
-    {
-      id: "sir-tetkik",
-      title: "Laboratuvar, Görüntüleme ve Endoskopi",
-      blocks: [
-        {
-          id: "sir-lab",
-          label: "Son karaciğer/böbrek paneli",
-          default: "skip",
-          modes: [
-            {
-              key: "fill", label: "Doldur",
-              fields: [
-                { name: "tarih", type: "date", label: "Tarih" },
-                { name: "ast", type: "text", label: "AST" }, { name: "alt", type: "text", label: "ALT" },
-                { name: "alp", type: "text", label: "ALP" }, { name: "ggt", type: "text", label: "GGT" },
-                { name: "tbil", type: "text", label: "Total bilirubin" }, { name: "dbil", type: "text", label: "Direkt bilirubin" },
-                { name: "alb", type: "text", label: "Albümin" }, { name: "inr", type: "text", label: "INR" },
-                { name: "plt", type: "text", label: "Trombosit" }, { name: "kre", type: "text", label: "Kreatinin" },
-                { name: "na", type: "text", label: "Sodyum" }
-              ],
-              build: (v) => {
-                const L = [
-                  ["AST", v.ast], ["ALT", v.alt], ["ALP", v.alp], ["GGT", v.ggt],
-                  ["total bilirubin", v.tbil], ["direkt bilirubin", v.dbil], ["albümin", v.alb],
-                  ["INR", v.inr], ["trombosit", v.plt], ["kreatinin", v.kre], ["sodyum", v.na]
-                ].filter((x) => x[1] != null && String(x[1]).trim() !== "").map((x) => `${x[0]} ${x[1]}`);
-                return L.length
-                  ? `${fmtDate(v.tarih)} tarihli tetkiklerde ${L.join(", ")} olarak saptanmış.`
-                  : "Önceki laboratuvar bilgisi net öğrenilemedi.";
-              }
-            },
-            SKIP
-          ]
-        },
-        metinBlok("sir-etiyo-tetkik", "Etiyoloji tetkikleri", "Tetkikler",
-          "ör. HBsAg/anti-HCV, ANA/AMA, ferritin/transferrin satürasyonu, seruloplazmin",
-          (v) => `Etiyolojiye yönelik tetkiklerde ${v} değerlendirilmiş.`),
-        metinBlok("sir-goruntuleme", "Görüntüleme (USG/Doppler/BT-MR/elastografi)", "Bulgular",
-          "ör. batın USG'de nodüler karaciğer, splenomegali, portal ven açık; elastografi F4",
-          (v) => `Görüntülemede ${v} saptanmış.`),
-        varYokDetay("sir-endoskopi", "Endoskopi / varis taraması yapıldı mı?",
-          [
-            { name: "tarih", type: "text", label: "Son endoskopi tarihi", placeholder: "ör. Mart 2025" },
-            { name: "varis", type: "text", label: "Varis durumu", placeholder: "ör. grade 2 özofagus varisi, kırmızı işaret yok" }
-          ],
-          (v) => `Son üst GİS endoskopisi ${v.tarih || "…"} tarihinde yapılmış; ${v.varis || "…"} saptanmış.`,
-          "Endoskopi/varis bilgisi net öğrenilemedi.", "Yapıldı", "Yapılmadı"),
-        varYokDetay("sir-hcc", "HCC taraması yapılıyor mu?",
-          [{ name: "detay", type: "text", label: "Son USG/AFP", placeholder: "ör. son USG ve AFP Şubat 2025, normal" }],
-          (v) => `HCC taraması yapılıyormuş (${v.detay || "…"}).`,
-          "HCC tarama bilgisi net öğrenilemedi.")
-      ]
-    },
-
-    /* ---- 4. Dekompanse Siroz Bulguları (alt başlıklı kodlama) ---- */
-    dekompGrup("sir-asit", "Asit / sıvı retansiyonu", [
-      { id: "karin-sislik", label: "Karında şişlik" },
-      { id: "bacak-odem", label: "Bacaklarda ödem" },
-      { id: "hizli-kilo", label: "Hızlı kilo artışı" },
-      { id: "parasentez", label: "Parasentez öyküsü" },
-      { id: "sbp", label: "Daha önce spontan bakteriyel peritonit öyküsü" }
-    ]),
-    dekompGrup("sir-gis", "Varis kanaması / GİS kanama", [
-      { id: "hematemez", label: "Hematemez" },
-      { id: "melena", label: "Melena" },
-      { id: "rektal", label: "Rektal kanama" },
-      { id: "varis-kanama", label: "Daha önce özofagus/gastrik varis kanaması" },
-      { id: "ligasyon", label: "Endoskopik bant ligasyonu/skleroterapi öyküsü" },
-      { id: "transfuzyon", label: "Kan transfüzyonu öyküsü" }
-    ]),
-    dekompGrup("sir-he", "Hepatik ensefalopati", [
-      { id: "uyku", label: "Uyku-uyanıklık döngüsünde bozulma" },
-      { id: "bilinc", label: "Bilinç bulanıklığı" },
-      { id: "unutkanlik", label: "Unutkanlık / dikkat bozukluğu" },
-      { id: "kisilik", label: "Kişilik veya davranış değişikliği" },
-      { id: "asteriksis", label: "Asteriksis öyküsü" },
-      { id: "laktuloz", label: "Laktüloz/rifaksimin kullanımı" }
-    ]),
-    dekompGrup("sir-sarilik", "Sarılık / kolestaz", [
-      { id: "sararma", label: "Gözlerde veya ciltte sararma" },
-      { id: "kasinti", label: "Kaşıntı" },
-      { id: "koyu-idrar", label: "Koyu renkli idrar" },
-      { id: "acik-diski", label: "Açık renkli dışkı" }
-    ]),
-    dekompGrup("sir-enf-renal", "Enfeksiyon ve renal kötüleşme", [
-      { id: "ates", label: "Ateş" },
-      { id: "karin-agri", label: "Karın ağrısı" },
-      { id: "idrar-azalma", label: "İdrar miktarında azalma" },
-      { id: "kreatinin-artis", label: "Son dönemde kreatinin artışı" },
-      { id: "hipotansiyon", label: "Hipotansiyon / sıvı kaybı" }
-    ]),
-
-    /* ---- 5. Genel Siroz Semptomları ---- */
-    {
-      id: "sir-genel",
-      title: "Genel Siroz Semptomları ve Komplikasyonlar",
-      blocks: [
-        {
-          id: "sir-genel-kod",
-          type: "symptom-code",
-          label: "Her semptomu kodlayın (bilgi yoksa 'Sorgulanmalı' kalır)",
-          symptoms: [
-            { id: "halsizlik", label: "Halsizlik" },
-            { id: "istahsizlik", label: "İştahsızlık" },
-            { id: "kilo-kaybi", label: "Kilo kaybı" },
-            { id: "sarkopeni", label: "Kas kaybı / sarkopeni" },
-            { id: "bulanti", label: "Bulantı-kusma" },
-            { id: "morarma", label: "Kolay morarma" },
-            { id: "kanama", label: "Burun/diş eti kanaması" },
-            { id: "libido", label: "Libido azalması" },
-            { id: "jinekomasti", label: "Jinekomasti" },
-            { id: "kramp", label: "Kas krampları" },
-            { id: "uyku-boz", label: "Uyku bozukluğu" },
-            { id: "malnutrisyon", label: "Malnütrisyon bulguları" }
+            }, SKIP
           ]
         }
-      ]
-    },
-
-    /* ---- 6. Tedavi ve İlaç Kullanımı ---- */
-    {
-      id: "sir-tedavi",
-      title: "Tedavi ve İlaç Kullanımı",
-      blocks: [
-        checklistCustom("sir-ilac", "Kullandığı tedaviler",
-          ["diüretik", "non-selektif beta bloker", "laktüloz", "rifaksimin", "antiviral tedavi",
-            "ursodeoksikolik asit", "albümin", "PPI", "antibiyotik profilaksisi", "demir/vitamin desteği"],
-          "kullanıyor", "kullanmıyor"),
-        metinBlok("sir-ilac-detay", "Doz / detay", "Detay",
-          "ör. spironolakton 100 mg + furosemid 40 mg, propranolol 20 mg 2x1",
-          (v) => `Tedavi detayında ${v} mevcut.`),
-        secimBlok("sir-uyum", "İlaç uyumu", ["iyi", "orta", "kötü", "net öğrenilemedi"],
-          (v) => `İlaç uyumu ${v} olarak değerlendirilmiş.`, "Uyum"),
-        metinBlok("sir-tedavi-not", "Doz değişikliği / yan etki / erişim", "Not",
-          "ör. yüksek doz diüretikle AKI öyküsü; ilaca erişim sorunu yok",
-          (v) => `Tedavi sürecinde ${v} belirtilmiş.`)
-      ]
-    },
-
-    /* ---- 7. Risk Faktörleri ve Maruziyetler ---- */
-    {
-      id: "sir-risk",
-      title: "Risk Faktörleri ve Maruziyetler",
-      blocks: [
-        varYokDetay("sir-alkol", "Alkol kullanımı var mı?",
-          [{ name: "detay", type: "text", label: "Miktar / süre / bırakma", placeholder: "ör. 20 yıl günde 1 şişe şarap, 2 yıl önce bırakmış" }],
-          (v) => `Alkol kullanım öyküsü mevcut (${v.detay || "…"}).`,
-          "Alkol kullanım öyküsü yok / tariflenmiyor."),
-        checklistVarYok("sir-risk-cluster", "Diğer risk faktörleri / maruziyetler",
-          ["kan transfüzyonu öyküsü", "cerrahi/girişim öyküsü", "IV ilaç kullanımı",
-            "dövme/piercing", "korunmasız cinsel temas", "ailede karaciğer hastalığı",
-            "obezite", "diyabet", "dislipidemi", "metabolik sendrom",
-            "hepatotoksik ilaç/bitkisel ürün", "toksin maruziyeti"])
-      ]
-    },
-
-    /* ---- 8. Takip, Tarama ve Özel Durumlar ---- */
-    {
-      id: "sir-takip",
-      title: "Takip, Tarama ve Özel Durumlar",
-      blocks: [
-        varYok("sir-varis-prof", "Varis profilaksisi var mı?",
-          "Varis profilaksisi (NSBB ve/veya bant ligasyonu) uygulanıyormuş.",
-          "Varis profilaksisi uygulanmıyor / net öğrenilemedi."),
-        metinBlok("sir-asilama", "Aşılama durumu", "Aşılar",
-          "ör. HAV ve HBV aşılı, pnömokok ve influenza yapılmış",
-          (v) => `Aşılama durumunda ${v} mevcut.`),
-        varYokDetay("sir-transplant", "Transplantasyon değerlendirmesi var mı?",
-          [{ name: "detay", type: "text", label: "Durum", placeholder: "ör. nakil listesinde / değerlendirme aşamasında" }],
-          (v) => `Karaciğer nakli açısından değerlendirilmiş (${v.detay || "…"}).`,
-          "Transplantasyon değerlendirmesi yapılmamış / net öğrenilemedi."),
-        varYok("sir-diyet", "Diyet / tuz kısıtlaması var mı?",
-          "Tuz kısıtlı diyete uyum sağlıyormuş.", "Diyet/tuz kısıtlaması bilgisi net öğrenilemedi."),
-        secimBlok("sir-alkol-birakma", "Alkol bırakma durumu",
-          ["hiç kullanmamış", "aktif kullanıyor", "bırakmış", "azaltmış", "net öğrenilemedi"],
-          (v) => `Alkol açısından ${v} durumda.`, "Durum"),
-        varYokDetay("sir-hepatoloji", "Hepatoloji/gastroenteroloji takibi var mı?",
-          [{ name: "yer", type: "text", label: "Takip yeri", placeholder: "ör. … Üniversitesi hepatoloji" }],
-          (v) => `${v.yer || "…"} hepatoloji/gastroenteroloji bölümünde takipliymiş.`,
-          "Düzenli hepatoloji/gastroenteroloji takibi yok / net öğrenilemedi.")
-      ]
-    },
-
-    /* ---- 9. Eşlik Eden Hastalıklar ---- */
-    {
-      id: "sir-komorbid",
-      title: "Eşlik Eden Hastalıklar ve Klinik Önemi",
-      blocks: [
-        checklistVarYok("sir-komorbid-cluster", "Eşlik eden hastalıklar",
-          ["kronik böbrek hastalığı", "diyabet", "hipertansiyon", "koroner arter hastalığı",
-            "kalp yetmezliği", "aktif/geçirilmiş enfeksiyon", "malignite", "tromboz öyküsü"]),
-        varYokDetay("sir-antikoag", "Antikoagülan / antiagregan kullanımı var mı?",
-          [{ name: "detay", type: "text", label: "İlaç", placeholder: "ör. portal ven trombozu nedeniyle enoksaparin" }],
-          (v) => `Antikoagülan/antiagregan kullanımı mevcut (${v.detay || "…"}).`,
-          "Antikoagülan/antiagregan kullanımı yok."),
-        metinBlok("sir-komorbid-not", "Klinik önem / not", "Not",
-          "ör. KBH nedeniyle diüretik ve kontrast dikkatli kullanılmalı",
-          (v) => `Eşlik eden hastalıkların siroz yönetimi açısından önemi: ${v}.`)
       ]
     }
   ]
