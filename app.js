@@ -16,7 +16,8 @@ const TEMPLATES = {
   mng: MNG_SEMA,
   siroz: SIROZ_SEMA,
   kf: KF_SEMA,
-  "hepatit-b": HEPATIT_B_SEMA
+  "hepatit-b": HEPATIT_B_SEMA,
+  osteoporoz: OSTEOPOROZ_SEMA
 };
 
 const form = document.getElementById("anamnez-form");
