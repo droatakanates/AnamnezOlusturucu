@@ -225,7 +225,7 @@
     const p5 = [];
     if (s.onTani) p5.push(`Ön Tanı: ${s.onTani}`);
     const probs = s.problemler.filter((x) => x.trim());
-    if (probs.length) p5.push("Değerlendirme:\n" + probs.map((p, i) => `${i + 1}) ${p}`).join("\n"));
+    if (probs.length) p5.push("Sorun Listesi:\n" + probs.map((p, i) => `${i + 1}) ${p}`).join("\n"));
     if (p5.length) P.push(p5.join("\n\n"));
 
     const ons = s.oneriler.filter((x) => x.trim());
@@ -511,9 +511,9 @@
     c.body.appendChild(scoresBody);
     root.appendChild(c.sec);
 
-    c = card("8", "Değerlendirme");
+    c = card("8", "Ön tanı & sorun listesi");
     c.body.appendChild(field("Ön tanı", textInput("onTani", "HES Evre I / Prerenal ABH")));
-    c.body.appendChild(label("Sorun listesi"));
+    c.body.appendChild(label("Sorun Listesi"));
     c.body.appendChild(list("problemler", true));
     root.appendChild(c.sec);
 
