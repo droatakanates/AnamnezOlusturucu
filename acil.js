@@ -602,11 +602,14 @@
     tabs.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
-      const acil = b.dataset.mode === "acil";
+      const mode = b.dataset.mode;         // "kronik" | "hedef" | "acil"
+      const isAcil = mode === "acil";
       tabs.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
-      document.querySelector(".toolbar").hidden = acil;
-      document.getElementById("layout").hidden = acil;
-      document.getElementById("acil-view").hidden = !acil;
+      document.querySelector(".toolbar").hidden = isAcil;
+      document.getElementById("layout").hidden = isAcil;
+      document.getElementById("acil-view").hidden = !isAcil;
+      // kronik / hedefe yönelik: aynı form motoru, farklı şablon havuzu
+      if (!isAcil && typeof window.setAnamnezCategory === "function") window.setAnamnezCategory(mode);
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }

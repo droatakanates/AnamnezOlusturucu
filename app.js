@@ -17,8 +17,17 @@ const TEMPLATES = {
   siroz: SIROZ_SEMA,
   kf: KF_SEMA,
   "hepatit-b": HEPATIT_B_SEMA,
-  osteoporoz: OSTEOPOROZ_SEMA
+  osteoporoz: OSTEOPOROZ_SEMA,
+  kcft: KCFT_SEMA
 };
+
+/* Şablon kategorileri: kronik hastalıklar ve hedefe yönelik acil anamnezler */
+const CATEGORIES = {
+  kronik: ["hipertansiyon", "ulseratif-kolit", "tip2-dm", "kky", "koah", "astim", "kbh",
+    "hipotiroidi", "hipertiroidi", "mng", "siroz", "kf", "hepatit-b", "osteoporoz"],
+  hedef: ["kcft"]
+};
+let currentCat = "kronik";
 
 const form = document.getElementById("anamnez-form");
 const preview = document.getElementById("preview");
@@ -427,7 +436,7 @@ function generate() {
 
   // Tüm kayıtlı hastalıkların taslaklarını başlıklarıyla birleştir
   const parts = [];
-  Object.keys(TEMPLATES).forEach((id) => {
+  CATEGORIES[currentCat].forEach((id) => {
     const st = id === currentId ? state : savedStates[id];
     if (!st) return;
     const paras = buildParagraphs(TEMPLATES[id], st);
@@ -614,6 +623,34 @@ document.getElementById("template-select").addEventListener("change", (e) => {
   updateSubtitle();
 });
 
+/* Şablon açılır menüsünü aktif kategoriye göre doldurur */
+function populateTemplateSelect() {
+  const sel = document.getElementById("template-select");
+  sel.innerHTML = "";
+  CATEGORIES[currentCat].forEach((id) => {
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = shortName(TEMPLATES[id].title);
+    sel.appendChild(o);
+  });
+  sel.value = currentId;
+}
+
+/* Kategori (kronik / hedefe yönelik) değiştirir — sekmeler tarafından çağrılır */
+window.setAnamnezCategory = function (cat) {
+  if (!CATEGORIES[cat] || cat === currentCat) return;
+  savedStates[currentId] = state;
+  currentCat = cat;
+  if (!CATEGORIES[cat].includes(currentId)) currentId = CATEGORIES[cat][0];
+  schema = TEMPLATES[currentId];
+  if (savedStates[currentId]) state = savedStates[currentId];
+  else initState();
+  populateTemplateSelect();
+  renderForm();
+  generate();
+  updateSubtitle();
+};
+
 function updateSubtitle() {
   if (subtitle) subtitle.textContent = `${schema.title} — form bazlı taslak`;
 }
@@ -628,6 +665,7 @@ function showToast(msg) {
 
 /* ---------- Başlat ---------- */
 initState();
+populateTemplateSelect();
 renderForm();
 generate();
 updateSubtitle();
