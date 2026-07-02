@@ -13,6 +13,8 @@
   /* NOT: Şikayete özgü (ör. dispne) semptom sorgulaması ileride eklenecek. */
   const GENEL_DURUM = ["iyi", "orta", "kötü"];
   const BILINC = ["açık", "kapalı", "stupor", "letarjik"];
+  const BASLANGIC = ["ani", "sinsi", "dalgalı", "bilinmiyor"];
+  const SEYIR = ["giderek artan", "gerileyen", "stabil", "dalgalı"];
   const ORYANTE = ["oryante", "non-oryante"];
   const KOOPERE = ["koopere", "non-koopere"];
   const KATILIM = ["eşit katılıyor", "eşit katılmıyor"];
@@ -44,6 +46,8 @@
     yas: "", cinsiyet: "", kronikTanilar: "", isteyenBirim: "", konsultasyonNedeni: "",
     kronikAnamnez: "",
     basvuruSikayeti: "", sikayetSuresi: "",
+    baslangicSekli: "", seyir: "", lokalizasyon: "", karakter: "", yayilim: "", siddet: "",
+    artiran: "", azaltan: "", eslikSemptom: "",
     duzenliIlaclar: "",
     ta: "", nabiz: "", ates: "", spo2: "", solunum: "",
     genelDurum: "", bilinc: "", oryantasyon: "", kooperasyon: "", gks: "",
@@ -170,6 +174,30 @@
     return L.join("\n");
   }
 
+  /* Başvuru şikâyeti + semptoma yönelik öykü (genel geçer) */
+  function basvuruOykusu() {
+    const P = [];
+    if (s.basvuruSikayeti) P.push(`Hasta acil servise ${s.basvuruSikayeti} nedeniyle başvurmuş.`);
+    const b = [];
+    if (s.sikayetSuresi) b.push(`${s.sikayetSuresi} önce`);
+    if (s.baslangicSekli && s.baslangicSekli !== "bilinmiyor") b.push(`${s.baslangicSekli} biçimde`);
+    let t = "";
+    if (b.length) t = `Şikayeti ${b.join(" ")} başlamış`;
+    if (s.seyir) t += (t ? " ve " : "Şikayeti ") + `${s.seyir} seyir göstermiş`;
+    if (t) P.push(t + ".");
+    const c = [];
+    if (s.lokalizasyon) c.push(`${s.lokalizasyon} yerleşimli`);
+    if (s.karakter) c.push(`${s.karakter} karakterde`);
+    if (s.yayilim) c.push(`${s.yayilim} bölgesine yayılan`);
+    if (s.siddet) c.push(`${s.siddet} şiddetinde`);
+    if (c.length) P.push(cap(c.join(", ")) + " olarak tarifleniyor.");
+    if (s.artiran && s.azaltan) P.push(`Şikayetinin ${s.artiran} ile arttığını, ${s.azaltan} ile azaldığını belirtiyor.`);
+    else if (s.artiran) P.push(`Şikayetinin ${s.artiran} ile arttığını belirtiyor.`);
+    else if (s.azaltan) P.push(`Şikayetinin ${s.azaltan} ile azaldığını belirtiyor.`);
+    if (s.eslikSemptom) P.push(`Eşlik eden semptom olarak ${s.eslikSemptom} tarifliyor.`);
+    return P.join(" ");
+  }
+
   /* ---------------- not üretici (saf) ---------------- */
   function generateNote() {
     const P = [];
@@ -187,10 +215,8 @@
     sent += " konsülte edildi.";
     P.push(header ? `${header}\n${sent}` : sent);
 
-    const p2 = [];
-    if (s.basvuruSikayeti) p2.push(`Hasta acil servise ${s.basvuruSikayeti} nedeniyle başvurmuş.`);
-    if (s.sikayetSuresi) p2.push(`Şikâyetleri ${s.sikayetSuresi} önce başlamış.`);
-    if (p2.length) P.push(p2.join(" "));
+    const hpi = basvuruOykusu();
+    if (hpi) P.push(hpi);
 
     if (s.kronikAnamnez.trim())
       P.push("Bilinen Hastalıklarının Öyküsü:\n" + s.kronikAnamnez.trim());
@@ -459,11 +485,26 @@
     c.body.appendChild(importBox());
     root.appendChild(c.sec);
 
-    c = card("3", "Başvuru");
+    c = card("3", "Başvuru şikâyeti ve öyküsü");
+    c.body.appendChild(field("Ana şikâyet", textInput("basvuruSikayeti", "ör. karın ağrısı")));
     c.body.appendChild(row("acil-row2", [
-      field("Başvuru şikâyeti", textInput("basvuruSikayeti", "halsizlik")),
-      field("Şikâyet süresi", textInput("sikayetSuresi", "3 gün"))
+      field("Başlangıç / süre", textInput("sikayetSuresi", "ör. 3 gün")),
+      field("Başlangıç şekli", segmented(BASLANGIC, "baslangicSekli"))
     ]));
+    c.body.appendChild(field("Seyir", segmented(SEYIR, "seyir")));
+    c.body.appendChild(row("acil-row2", [
+      field("Lokalizasyon", textInput("lokalizasyon", "ör. sağ alt kadran")),
+      field("Karakter", textInput("karakter", "ör. kramp tarzında / yanıcı"))
+    ]));
+    c.body.appendChild(row("acil-row2", [
+      field("Yayılım", textInput("yayilim", "ör. sırta")),
+      field("Şiddet", textInput("siddet", "ör. VAS 8/10"))
+    ]));
+    c.body.appendChild(row("acil-row2", [
+      field("Artıran faktörler", textInput("artiran", "ör. yemek sonrası")),
+      field("Azaltan faktörler", textInput("azaltan", "ör. dinlenme"))
+    ]));
+    c.body.appendChild(field("Eşlik eden semptomlar", textInput("eslikSemptom", "ör. bulantı, kusma, ateş", true)));
     root.appendChild(c.sec);
 
     c = card("4", "İlaçlar & vital bulgular");
